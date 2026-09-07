@@ -4,7 +4,7 @@
 
 选中文字点 **mark**；图片、Mermaid 图表和表格也能保存。通过右侧导航回看当前任务，或在左侧 **mark** 页面搜索所有收藏。
 
-[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载预览版](https://github.com/yinjialu/mark/releases/tag/v0.1.0-preview.4) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md)
+[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载预览版](https://github.com/yinjialu/mark/releases/tag/v0.1.0-preview.5) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md)
 
 > 开发者预览版。目前界面集成仅支持 **macOS Apple Silicon，Codex 26.901.51231 / build 8109**，还会校验客户端包的完整性。不是 OpenAI 官方项目；其他版本会停止安装，等待适配。
 
@@ -32,7 +32,7 @@
 把下面这句话发给 Codex，再复制安装文档中包含本地签名与重启授权的完整指令：
 
 ```text
-请阅读 https://github.com/yinjialu/mark/blob/v0.1.0-preview.4/docs/INSTALL.md，
+请阅读 https://github.com/yinjialu/mark/blob/v0.1.0-preview.5/docs/INSTALL.md，
 按照“复制给 Codex 自动安装”部分帮我安装 mark。先确认我的客户端版本兼容。
 ```
 

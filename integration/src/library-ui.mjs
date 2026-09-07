@@ -98,6 +98,7 @@ export function createMarksUI(React,jsx,ui){
   }
   function Marks({items,onRevealItem,getScrollElement,navigate,pathname}){
     const [marks,setMarks]=React.useState([]),[total,setTotal]=React.useState(0),[revision,setRevision]=React.useState(0),[threadId,setThreadId]=React.useState(''),[container,setContainer]=React.useState(null),[hover,setHover]=React.useState(null),[active,setActive]=React.useState(null),[notice,setNotice]=React.useState('');
+    const tooltipId=React.useId();
     const ref=React.useRef({});ref.current={items,onRevealItem,getScrollElement,navigate,threadId};
     const disposed=React.useRef(false),jumpSequence=React.useRef(0);
     React.useEffect(()=>{disposed.current=false;return()=>{disposed.current=true;jumpSequence.current++;};},[]);
@@ -144,11 +145,21 @@ export function createMarksUI(React,jsx,ui){
       else{navigate('/mark',{state:{markSourceThreadId:threadId,markSelectedId:mark.id,markNotice:'原文暂未加载，已打开保存的快照'}});}
     }
     React.useEffect(()=>{if(pendingJump?.thread_id===threadId&&items.length){const m=pendingJump;pendingJump=null;void jump(m);}},[threadId,items]);
+    React.useLayoutEffect(()=>{
+      if(!hover)return;
+      const check=()=>{if(!hover.element.isConnected)setHover(null);};
+      check();const observer=new MutationObserver(check);
+      observer.observe(document.documentElement,{childList:true,subtree:true});
+      return()=>observer.disconnect();
+    },[hover]);
     if(!window.codexMarks?.library||!container)return null;
-    const markButtons=marks.map(m=>h('button',{key:m.id,type:'button','data-codex-mark-nav-id':m.id,'aria-label':'定位 mark：'+heading(m).slice(0,100),'aria-current':active===m.id?'true':undefined,'aria-describedby':hover?.mark.id===m.id?'codex-mark-preview':undefined,className:'mark-rail-line',onPointerEnter:e=>setHover({mark:m,element:e.currentTarget}),onFocus:e=>setHover({mark:m,element:e.currentTarget}),onBlur:()=>setHover(null),onClick:()=>void jump(m)},h(Marker,{bookmarked:false})));
-    const preview=hover?h(Preview,{},h('div',{className:'font-medium truncate'},hover.mark.anchor?.turn_title||heading(hover.mark)),h('div',{className:'mark-hover-excerpt'},hover.mark.quote)):null;
+    const hovered=hover?.element.isConnected&&marks.some(m=>m.id===hover.mark.id)?hover:null;
+    const markButtons=marks.map(m=>h('button',{key:m.id,type:'button','data-codex-mark-nav-id':m.id,'aria-label':'定位 mark：'+heading(m).slice(0,100),'aria-current':active===m.id?'true':undefined,'aria-describedby':hovered?.mark.id===m.id?tooltipId:undefined,className:'mark-rail-line',onPointerEnter:e=>setHover({mark:m,element:e.currentTarget}),onFocus:e=>setHover({mark:m,element:e.currentTarget}),onBlur:()=>setHover(null),onClick:()=>void jump(m)},h(Marker,{bookmarked:false})));
+    // Keep tooltipContent non-null: the host otherwise swaps the trigger subtree
+    // on first hover, leaving positioningElement pointing at a detached button.
+    const preview=h(Preview,{},hovered?h(jsx.Fragment,{},h('div',{className:'font-medium truncate'},hovered.mark.anchor?.turn_title||heading(hovered.mark)),h('div',{className:'mark-hover-excerpt'},hovered.mark.quote)):null);
     const rail=h('nav',{'aria-label':'mark 导航','data-codex-mark-rail':'',className:'mark-rail'},
-      h(Tooltip,{open:!!hover,onOpenChange:value=>{if(!value)setHover(null);},positioningElement:hover?.element,side:'left',sideOffset:4,align:'center',variant:'floating-navigation-rail',tooltipContent:preview,tooltipId:'codex-mark-preview',tooltipMaxWidth:'min(20rem, calc(100vw - 16px))'},h('div',{'data-floating-navigation-rail-list':true,className:'mark-rail-lines',onPointerLeave:()=>setHover(null)},...markButtons)),
+      h(Tooltip,{open:!!hovered,onOpenChange:value=>{if(!value)setHover(null);},positioningElement:hovered?.element,side:'left',sideOffset:4,align:'center',variant:'floating-navigation-rail',tooltipContent:preview,tooltipId,tooltipMaxWidth:'min(20rem, calc(100vw - 16px))'},h('div',{'data-floating-navigation-rail-list':true,className:'mark-rail-lines',onPointerLeave:()=>setHover(null)},...markButtons)),
       total>marks.length?button('+',()=>navigate('/mark',{state:{markSourceThreadId:threadId}}),{'aria-label':'在收藏库查看其余标记'}):null);
     return h(jsx.Fragment,{},h('style',{},styles),createPortal(rail,container),
       notice?createPortal(h('div',{className:'mark-nav-notice',role:'status'},notice),container):null);
