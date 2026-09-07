@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release": "0.1.0-preview.7",
+  "release": "0.1.0-preview.8",
   "adapters": [
     {
       "id": "codex-26.901.51231-arm64-v1",

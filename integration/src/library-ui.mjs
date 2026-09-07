@@ -7,6 +7,10 @@ const changed=()=>window.dispatchEvent(new Event('codex-marks-changed'));
 const kind=m=>({image:'图片',mermaid:'图表',table:'表格'}[m.anchor?.block_kind]||'文字');
 const heading=m=>m.title||m.quote||kind(m);
 const textOf=node=>{const r=document.createRange();r.selectNodeContents(node);return r.toString();};
+function navigationItem(mark,items){
+  const turn=mark.anchor?.turn_id;
+  return turn?items.find(item=>{const key=item.turnKey;return typeof key==='string'&&(key===turn||key.endsWith(':'+turn)||key.startsWith(turn+':transcript:'));}):null;
+}
 function rangeAt(body,start,end){
   if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<=start)return null;
   const walker=document.createTreeWalker(body,NodeFilter.SHOW_TEXT),r=document.createRange();let node,offset=0,began=false;
@@ -96,10 +100,10 @@ export function createMarksUI(React,jsx,ui){
         initialNotice?h('p',{role:'status',className:'text-secondary text-sm'},initialNotice):null,
         window.codexMarks?.library?h(Library,{threadId,onJump:jump,selected,onSelect:setSelected,revision,query}):h('p',{role:'status'},'mark 暂不可用，请通过 mark 启动器打开适配后的客户端。')));
   }
-  function Marks({items,onRevealItem,onRevealMark,getScrollElement,navigate,pathname}){
+  function Marks({items,onRevealItem,onPreviewItem,onRevealMark,getScrollElement,navigate,pathname}){
     const [marks,setMarks]=React.useState([]),[total,setTotal]=React.useState(0),[revision,setRevision]=React.useState(0),[threadId,setThreadId]=React.useState(''),[container,setContainer]=React.useState(null),[hover,setHover]=React.useState(null),[active,setActive]=React.useState(null),[notice,setNotice]=React.useState('');
-    const tooltipId=React.useId();
-    const ref=React.useRef({});ref.current={items,onRevealItem,onRevealMark,getScrollElement,navigate,threadId};
+    const tooltipId=React.useId(),preloaded=React.useRef(new Set());
+    const ref=React.useRef({});ref.current={items,onRevealItem,onPreviewItem,onRevealMark,getScrollElement,navigate,threadId};
     const disposed=React.useRef(false),jumpSequence=React.useRef(0);
     React.useEffect(()=>{disposed.current=false;return()=>{disposed.current=true;jumpSequence.current++;};},[]);
     React.useEffect(()=>{
@@ -108,6 +112,18 @@ export function createMarksUI(React,jsx,ui){
       const id=pathId||scroll?.querySelector(rootSelector)?.getAttribute('data-response-annotation-conversation')||'';
       setThreadId(uuid.test(id)?id:'');setHover(null);setMarks([]);setTotal(0);setNotice('');
     },[pathname,getScrollElement]);
+    React.useEffect(()=>{
+      const item=hover&&navigationItem(hover.mark,items);
+      if(!item||!onPreviewItem)return;
+      const key=threadId+':'+item.id;
+      if(preloaded.current.has(key))return;
+      // Match the native rail's 150 ms hover preload delay; quick passes do no work.
+      const timer=setTimeout(()=>{
+        preloaded.current.add(key);
+        Promise.resolve().then(()=>onPreviewItem(item)).then(ok=>{if(ok===false)preloaded.current.delete(key);}).catch(()=>preloaded.current.delete(key));
+      },150);
+      return()=>clearTimeout(timer);
+    },[hover,items,onPreviewItem,threadId]);
     React.useEffect(()=>{const update=()=>setRevision(v=>v+1);window.addEventListener('codex-marks-changed',update);window.addEventListener('focus',update);const timer=setInterval(()=>{if(!document.hidden)update();},10000);return()=>{window.removeEventListener('codex-marks-changed',update);window.removeEventListener('focus',update);clearInterval(timer);};},[]);
     React.useEffect(()=>{
       if(!threadId)return;let alive=true;
@@ -130,15 +146,18 @@ export function createMarksUI(React,jsx,ui){
       const current=()=>!disposed.current&&seq===jumpSequence.current&&ref.current.threadId===mark.thread_id;
       const scroll=getScrollElement();let found=await locateMark(mark,scroll);
       if(!current())return;
-      if(!found&&ref.current.onRevealMark){
+      const item=navigationItem(mark,ref.current.items);
+      if(!found&&item&&ref.current.onRevealItem){
+        try{await ref.current.onRevealItem(item);}catch{}
+        if(!current())return;
+        found=await locateMark(mark,getScrollElement());
+      }
+      if((!found||found.precision==='message')&&ref.current.onRevealMark){
         try{await ref.current.onRevealMark(mark);}catch{}
         if(!current())return;
         found=await locateMark(mark,getScrollElement());
       }
       if(!found){
-        const turn=mark.anchor?.turn_id;
-        const item=turn&&ref.current.items.find(i=>i.turnKey===turn||i.turnKey?.endsWith(':'+turn));
-        if(item&&ref.current.onRevealItem){try{await ref.current.onRevealItem(item);}catch{}}
         for(let i=0;i<40&&current();i++){found=await locateMark(mark,getScrollElement());if(found)break;await new Promise(r=>setTimeout(r,100));}
         if(!found&&item&&current()){
           const unit=Array.from(getScrollElement()?.querySelectorAll('[data-content-search-unit-key]')||[]).find(el=>el.getAttribute('data-content-search-unit-key')===item.id);
