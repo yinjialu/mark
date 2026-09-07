@@ -34,7 +34,7 @@ export async function locateMark(mark,scroll){
 }
 function reveal(found,scroll){
   const rect=found.range?.getBoundingClientRect()||found.element.getBoundingClientRect(),box=scroll.getBoundingClientRect();
-  scroll.scrollBy({top:rect.top-box.top-scroll.clientHeight*.3,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  scroll.scrollBy({top:rect.top-box.top-scroll.clientHeight*.15,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
   if(found.range&&CSS.highlights&&window.Highlight){
     CSS.highlights.set('codex-mark-jump',new Highlight(found.range));setTimeout(()=>CSS.highlights.delete('codex-mark-jump'),2200);
   }else found.element.animate?.([{outline:'3px solid #d39620'},{outline:'3px solid transparent'}],{duration:1600});
