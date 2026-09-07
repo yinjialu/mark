@@ -1,0 +1,20 @@
+{
+  "name": "mark",
+  "interface": {
+    "displayName": "Mark"
+  },
+  "plugins": [
+    {
+      "name": "codex-marks",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-marks"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
