@@ -96,10 +96,10 @@ export function createMarksUI(React,jsx,ui){
         initialNotice?h('p',{role:'status',className:'text-secondary text-sm'},initialNotice):null,
         window.codexMarks?.library?h(Library,{threadId,onJump:jump,selected,onSelect:setSelected,revision,query}):h('p',{role:'status'},'mark 暂不可用，请通过 mark 启动器打开适配后的客户端。')));
   }
-  function Marks({items,onRevealItem,getScrollElement,navigate,pathname}){
+  function Marks({items,onRevealItem,onRevealMark,getScrollElement,navigate,pathname}){
     const [marks,setMarks]=React.useState([]),[total,setTotal]=React.useState(0),[revision,setRevision]=React.useState(0),[threadId,setThreadId]=React.useState(''),[container,setContainer]=React.useState(null),[hover,setHover]=React.useState(null),[active,setActive]=React.useState(null),[notice,setNotice]=React.useState('');
     const tooltipId=React.useId();
-    const ref=React.useRef({});ref.current={items,onRevealItem,getScrollElement,navigate,threadId};
+    const ref=React.useRef({});ref.current={items,onRevealItem,onRevealMark,getScrollElement,navigate,threadId};
     const disposed=React.useRef(false),jumpSequence=React.useRef(0);
     React.useEffect(()=>{disposed.current=false;return()=>{disposed.current=true;jumpSequence.current++;};},[]);
     React.useEffect(()=>{
@@ -126,23 +126,28 @@ export function createMarksUI(React,jsx,ui){
     async function jump(mark){
       if(!uuid.test(mark.thread_id||'')){setNotice('这条收藏没有来源任务');return;}
       if(mark.thread_id!==ref.current.threadId){pendingJump=mark;navigate('/local/'+mark.thread_id);return;}
-      const seq=++jumpSequence.current;setNotice('正在定位…');
+      const seq=++jumpSequence.current;setHover(null);setNotice('正在定位…');
       const current=()=>!disposed.current&&seq===jumpSequence.current&&ref.current.threadId===mark.thread_id;
       const scroll=getScrollElement();let found=await locateMark(mark,scroll);
       if(!current())return;
+      if(!found&&ref.current.onRevealMark){
+        try{await ref.current.onRevealMark(mark);}catch{}
+        if(!current())return;
+        found=await locateMark(mark,getScrollElement());
+      }
       if(!found){
         const turn=mark.anchor?.turn_id;
         const item=turn&&ref.current.items.find(i=>i.turnKey===turn||i.turnKey?.endsWith(':'+turn));
         if(item&&ref.current.onRevealItem){try{await ref.current.onRevealItem(item);}catch{}}
-        for(let i=0;i<15&&current();i++){found=await locateMark(mark,getScrollElement());if(found)break;await new Promise(r=>setTimeout(r,100));}
+        for(let i=0;i<40&&current();i++){found=await locateMark(mark,getScrollElement());if(found)break;await new Promise(r=>setTimeout(r,100));}
         if(!found&&item&&current()){
           const unit=Array.from(getScrollElement()?.querySelectorAll('[data-content-search-unit-key]')||[]).find(el=>el.getAttribute('data-content-search-unit-key')===item.id);
           if(unit)found={element:unit,precision:'turn'};
         }
       }
       if(!current())return;
-      if(found){setHover(null);setActive(mark.id);requestAnimationFrame(()=>reveal(found,getScrollElement()));setNotice(found.precision==='message'?'已定位到对应消息':found.precision==='turn'?'已定位到所属轮次':'');}
-      else{navigate('/mark',{state:{markSourceThreadId:threadId,markSelectedId:mark.id,markNotice:'原文暂未加载，已打开保存的快照'}});}
+      if(found){setHover(null);setActive(mark.id);requestAnimationFrame(()=>{const scroll=getScrollElement();if(current()&&scroll?.isConnected&&found.element.isConnected)reveal(found,scroll);});setNotice(found.precision==='message'?'已定位到对应消息':found.precision==='turn'?'已定位到所属轮次':'');}
+      else{setNotice('暂未找到原文，请重试；保存的快照可在左侧 mark 中查看');}
     }
     React.useEffect(()=>{if(pendingJump?.thread_id===threadId&&items.length){const m=pendingJump;pendingJump=null;void jump(m);}},[threadId,items]);
     React.useLayoutEffect(()=>{

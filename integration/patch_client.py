@@ -222,6 +222,10 @@ def prepare(app, output, plugin):
     modified, original_component, patched_component = replace_toolbar(archive.read(ASSET).decode())
     modified, initial, mermaid = replace_blocks(archive, modified)
     modified = replace_sidebar(modified)
+    if 'function aTr(e,t,n){return e.set(G8,t,n)' not in modified:
+        raise ValueError('Native source navigation registry changed')
+    modified += '\n' + (ROOT / 'src/native-source.js').read_text()
+
     initial = replace_page(initial)
     # Native components are initialized by their original lazy module initializers.
     initial = 'import {n as __initMarkTabs,t as __MarkTabs} from "./tabs-2fa243fa7caf.js";\n' + initial
@@ -231,12 +235,13 @@ def prepare(app, output, plugin):
     if rail.count(expected) != 1:
         raise ValueError('Native navigation entry changed')
     rail = ('import {createMarksUI as __createMarksUI} from "./codex-marks-library.js";\n'
-            'import {__markNativeComponents} from "./app-initial-cadb12d4a15e.js";\n' +
+            'import {__markNativeComponents} from "./app-initial-cadb12d4a15e.js";\n'
+            'import {__markUseRevealSource} from "./app-primary-6cd7b8b3f5e3.js";\n' +
             rail.replace(expected, 'export{__MarkRailRoot as AppThreadUserMessageNavigationRail};') +
             '\nconst __markUI=__markNativeComponents();'
             'const __MarkLibrary=__createMarksUI(tn,nn,{...__markUI,Marker:Ke,Preview:qe,Tooltip:ue,Icon:lt,createPortal:Wt.createPortal});'
-            'function __MarkRailRoot(e){const {getScrollElement}=Ie(),navigate=__markUI.useNavigate(),location=__markUI.useLocation();'
-            'return (0,nn.jsxs)(nn.Fragment,{children:[(0,nn.jsx)(Qt,e),(0,nn.jsx)(__MarkLibrary,{...e,getScrollElement,navigate,pathname:location.pathname})]});}\n')
+            'function __MarkRailRoot(e){const {getScrollElement}=Ie(),navigate=__markUI.useNavigate(),location=__markUI.useLocation(),onRevealMark=__markUseRevealSource();'
+            'return (0,nn.jsxs)(nn.Fragment,{children:[(0,nn.jsx)(Qt,e),(0,nn.jsx)(__MarkLibrary,{...e,getScrollElement,navigate,onRevealMark,pathname:location.pathname})]});}\n')
     bootstrap = archive.read(BOOTSTRAP)
     if bootstrap.count(b"Promise.resolve().then") != 1:
         raise ValueError("Bootstrap structure changed")
