@@ -40,7 +40,7 @@ function reveal(found,scroll){
   }else found.element.animate?.([{outline:'3px solid #d39620'},{outline:'3px solid transparent'}],{duration:1600});
 }
 export function createMarksUI(React,jsx,ui){
-  const {Button,PageLayout,Input,Marker,Preview,Tooltip,Icon,createPortal}=ui;
+  const {Button,PageLayout,Input,Tabs,Marker,Preview,Tooltip,createPortal}=ui;
   const h=(type,props,...children)=>jsx.jsx(type,{...props,...(children.length?{children:children.length===1?children[0]:children}:{})});
   const button=(text,onClick,props={})=>h(Button,{color:'ghost',size:'sm',onClick,...props},text);
   const call=async payload=>{const r=await window.codexMarks.library(payload);if(!r?.ok)throw Error(r?.error||'操作失败，请重试');return r;};
@@ -75,10 +75,12 @@ export function createMarksUI(React,jsx,ui){
     const [scope,setScope]=React.useState('all'),[rows,setRows]=React.useState([]),[total,setTotal]=React.useState(0),[offset,setOffset]=React.useState(0),[busy,setBusy]=React.useState(true),[error,setError]=React.useState(''),[localRev,setLocalRev]=React.useState(0);
     React.useEffect(()=>{let alive=true;setBusy(true);setError('');setRows([]);const timer=setTimeout(()=>{call({op:'search',query,thread_id:scope==='task'?threadId:'',deleted:scope==='trash',offset,limit:50}).then(r=>{if(!alive)return;setRows(r.marks);setTotal(r.total);}).catch(e=>alive&&setError(e.message)).finally(()=>alive&&setBusy(false));},180);return()=>{alive=false;clearTimeout(timer);};},[query,scope,threadId,offset,revision,localRev]);
     React.useEffect(()=>{setOffset(0);},[query]);
+    const panelPrefix=React.useId();
+    React.useEffect(()=>{if(!threadId&&scope==='task'){setScope('all');setOffset(0);onSelect(null);}},[threadId,scope,onSelect]);
     return h('div',{className:'mark-library-grid'},h('section',{className:'mark-library-list'},
-      h('div',{className:'mark-library-filters'},...['all','task','trash'].map(s=>button({all:'全部',task:'当前任务',trash:'回收站'}[s],()=>{setScope(s);setOffset(0);onSelect(null);},{key:s,color:scope===s?'ghostActive':'ghost',disabled:s==='task'&&!threadId,'aria-pressed':scope===s}))),
+      h(Tabs,{ariaLabel:'收藏范围',variant:'page',scrollable:true,selectedKey:scope,tabs:['all',...(threadId?['task']:[]), 'trash'].map(s=>({key:s,name:{all:'全部',task:'当前任务',trash:'回收站'}[s],panelId:panelPrefix+'-'+s})),onSelect:s=>{setScope(s);setOffset(0);onSelect(null);}}),
       h('div',{className:'text-tertiary text-xs',role:'status'},busy?'正在读取…':error||`${total} 条收藏`),
-      h('div',{className:'mark-library-rows'},...rows.map(m=>h('button',{key:m.id,type:'button',className:'mark-library-row','aria-pressed':selected===m.id,onClick:()=>onSelect(m.id)},h('div',{className:'mark-row-title'},heading(m)),h('div',{className:'mark-row-excerpt'},m.quote),h('div',{className:'text-tertiary text-xs'},kind(m)+' · '+(m.thread_title||new Date(m.created_at).toLocaleDateString())))),!busy&&!error&&!rows.length?h('p',{className:'text-tertiary'},query?'没有找到匹配的收藏':'还没有收藏。在原文上点击 mark 即可保存。'):null),
+      h('div',{className:'mark-library-rows',role:'tabpanel',id:panelPrefix+'-'+scope,'aria-labelledby':panelPrefix+'-'+scope+'-tab',tabIndex:0},...rows.map(m=>h('button',{key:m.id,type:'button',className:'mark-library-row','aria-pressed':selected===m.id,onClick:()=>onSelect(m.id)},h('div',{className:'mark-row-title'},heading(m)),h('div',{className:'mark-row-excerpt'},m.quote),h('div',{className:'text-tertiary text-xs'},kind(m)+' · '+(m.thread_title||new Date(m.created_at).toLocaleDateString())))),!busy&&!error&&!rows.length?h('p',{className:'text-tertiary'},query?'没有找到匹配的收藏':'还没有收藏。在原文上点击 mark 即可保存。'):null),
       h('div',{className:'mark-detail-actions'},button('上一页',()=>setOffset(Math.max(0,offset-50)),{disabled:busy||offset===0}),button('下一页',()=>setOffset(offset+50),{disabled:busy||offset+50>=total}))),
       selected?h(Detail,{key:selected,id:selected,onChange:()=>{setLocalRev(v=>v+1);},onJump}):h('div',{className:'mark-detail-empty'},'选择一条收藏，查看内容和来源'));
   }
@@ -144,7 +146,7 @@ export function createMarksUI(React,jsx,ui){
     React.useEffect(()=>{if(pendingJump?.thread_id===threadId&&items.length){const m=pendingJump;pendingJump=null;void jump(m);}},[threadId,items]);
     if(!window.codexMarks?.library||!container)return null;
     const markButtons=marks.map(m=>h('button',{key:m.id,type:'button','data-codex-mark-nav-id':m.id,'aria-label':'定位 mark：'+heading(m).slice(0,100),'aria-current':active===m.id?'true':undefined,'aria-describedby':hover?.mark.id===m.id?'codex-mark-preview':undefined,className:'mark-rail-line',onPointerEnter:e=>setHover({mark:m,element:e.currentTarget}),onFocus:e=>setHover({mark:m,element:e.currentTarget}),onBlur:()=>setHover(null),onClick:()=>void jump(m)},h(Marker,{bookmarked:false})));
-    const preview=hover?h(Preview,{},h('div',{className:'font-medium truncate'},hover.mark.anchor?.turn_title||heading(hover.mark)),h('div',{className:'mark-hover-excerpt'},hover.mark.quote),h('div',{className:'text-tertiary text-xs'},kind(hover.mark)+' · 点击定位')):null;
+    const preview=hover?h(Preview,{},h('div',{className:'font-medium truncate'},hover.mark.anchor?.turn_title||heading(hover.mark)),h('div',{className:'mark-hover-excerpt'},hover.mark.quote)):null;
     const rail=h('nav',{'aria-label':'mark 导航','data-codex-mark-rail':'',className:'mark-rail'},
       h(Tooltip,{open:!!hover,onOpenChange:value=>{if(!value)setHover(null);},positioningElement:hover?.element,side:'left',sideOffset:4,align:'center',variant:'floating-navigation-rail',tooltipContent:preview,tooltipId:'codex-mark-preview',tooltipMaxWidth:'min(20rem, calc(100vw - 16px))'},h('div',{'data-floating-navigation-rail-list':true,className:'mark-rail-lines',onPointerLeave:()=>setHover(null)},...markButtons)),
       total>marks.length?button('+',()=>navigate('/mark',{state:{markSourceThreadId:threadId}}),{'aria-label':'在收藏库查看其余标记'}):null);
@@ -170,7 +172,7 @@ const styles=`
 .mark-page-content{min-width:0}.mark-page .mark-library-grid{min-height:440px;align-items:start;gap:28px}.mark-page .mark-library-list{min-width:0}.mark-page .mark-detail{min-width:0;position:sticky;top:88px;height:calc(100dvh - 240px);min-height:340px}.mark-page .mark-detail-empty{min-height:440px}.mark-page .mark-preview{min-height:180px}
 .mark-library-grid{display:grid;grid-template-columns:minmax(220px,32%) minmax(0,1fr);gap:20px;flex:1;min-height:0}
 .mark-library-list{display:flex;flex-direction:column;gap:12px;min-height:0}.mark-input{width:100%;border:1px solid var(--color-border)!important;border-radius:8px!important;padding:8px 10px!important;background:var(--color-surface)!important;color:var(--color-text);font:inherit;box-sizing:border-box;outline-offset:2px}
-.mark-library-filters,.mark-detail-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;flex:none}.mark-library-rows{flex:1;min-height:0;overflow:auto}
+.mark-detail-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;flex:none}.mark-library-rows{flex:1;min-height:0;overflow:auto}
 .mark-library-row{display:block;width:100%;text-align:left;border:0;border-radius:10px;background:transparent;color:inherit;padding:12px;cursor:pointer;margin-bottom:4px}.mark-library-row:hover{background:color-mix(in srgb,var(--color-text) 5%,transparent)}.mark-library-row[aria-pressed=true]{background:color-mix(in srgb,var(--color-text) 9%,transparent)}
 .mark-row-title{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mark-row-excerpt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;line-height:1.5;margin:6px 0;opacity:.7;overflow-wrap:anywhere}
 .mark-detail{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto}.mark-detail-heading{overflow-wrap:anywhere}.mark-preview{min-height:180px;flex:1;overflow:hidden;border:1px solid var(--color-border);border-radius:10px;background:var(--color-surface)}

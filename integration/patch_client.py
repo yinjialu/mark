@@ -224,7 +224,8 @@ def prepare(app, output, plugin):
     modified = replace_sidebar(modified)
     initial = replace_page(initial)
     # Native components are initialized by their original lazy module initializers.
-    initial += '\nexport function __markNativeComponents(){qN();pH();gq();oCo();return {React:c(),jsx:G(),createPortal:pe().createPortal,Button:KN,PageLayout:$So,Dialog:cH,Title:lH,Description:uH,Input:P6i,useNavigate:$w,useLocation:Zw};}\n'
+    initial = 'import {n as __initMarkTabs,t as __MarkTabs} from "./tabs-2fa243fa7caf.js";\n' + initial
+    initial += '\nexport function __markNativeComponents(){qN();pH();gq();oCo();__initMarkTabs();return {React:c(),jsx:G(),createPortal:pe().createPortal,Button:KN,Tabs:__MarkTabs,PageLayout:$So,Dialog:cH,Title:lH,Description:uH,Input:P6i,useNavigate:$w,useLocation:Zw};}\n'
     rail = archive.read(RAIL).decode()
     expected = 'export{Qt as AppThreadUserMessageNavigationRail};'
     if rail.count(expected) != 1:
