@@ -27,6 +27,7 @@
 
 ```sh
 python3 -B -m unittest discover -s tests -v
+node --test tests/*.test.cjs
 python3 -B scripts/checksums.py
 python3 -B mark.py doctor
 ```

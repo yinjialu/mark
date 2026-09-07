@@ -4,7 +4,7 @@
 
 选中文字点 **mark**；图片、Mermaid 图表和表格也能保存。通过右侧导航回看当前任务，或在左侧 **mark** 页面搜索所有收藏。
 
-[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载预览版](https://github.com/yinjialu/mark/releases/tag/v0.1.0-preview.1) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md)
+[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载预览版](https://github.com/yinjialu/mark/releases/tag/v0.1.0-preview.2) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md)
 
 > 开发者预览版。目前界面集成仅支持 **macOS Apple Silicon，Codex 26.901.51231 / build 8109**，还会校验客户端包的完整性。不是 OpenAI 官方项目；其他版本会停止安装，等待适配。
 
@@ -20,8 +20,8 @@
 
 ## 能做什么
 
-- **直接划词**：原生浮栏点 mark，不发送消息；已保存文字显示下划线。
-- **不止文字**：图片、Mermaid 图表、表格旁的书签按钮保存完整内容。
+- **直接划词**：原生浮栏点 mark，不发送消息；已保存文字显示下划线，再点一次取消。
+- **不止文字**：图片、Mermaid 图表、表格旁的书签按钮保存完整内容，再次点击取消。
 - **快速回看**：右侧短横线悬停预览、连续波动，点击定位标记。
 - **统一收藏库**：左侧 mark 进入原生页面，支持搜索、标签、备注、回收站与恢复。
 - **保留来源**：保存来源任务和选区/块位置。精确匹配失败时退到消息或保存时的快照。
@@ -32,7 +32,7 @@
 把下面这句话发给 Codex，再复制安装文档中包含本地签名与重启授权的完整指令：
 
 ```text
-请阅读 https://github.com/yinjialu/mark/blob/v0.1.0-preview.1/docs/INSTALL.md，
+请阅读 https://github.com/yinjialu/mark/blob/v0.1.0-preview.2/docs/INSTALL.md，
 按照“复制给 Codex 自动安装”部分帮我安装 mark。先确认我的客户端版本兼容。
 ```
 

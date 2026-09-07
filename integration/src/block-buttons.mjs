@@ -113,10 +113,20 @@ export function renderMarkButton(React, jsx, Button, props) {
     const entry=entryRef.current;
     if (!entry?.meta || stateRef.current==='saving') return;
     const selectedSource={...entry.meta}, selectedElement=entry.element(), imageSrc=selectedElement?.currentSrc;
-    // Acquire the single-use ticket synchronously during the actual icon click.
-    const ticketPromise=window.codexMarks.beginBlockMark(selectedSource);
+    const existing=cache.find(mark=>identity(mark)===identity(selectedSource)&&mark.block_kind===entry.kind&&mark.block_index===selectedSource.block_index&&mark.block_source_hash===selectedSource.source_hash);
+    // Only saving needs a ticket and asset capture; cancellation uses the existing mark ID.
+    const ticketPromise=existing?null:window.codexMarks.beginBlockMark(selectedSource);
     stateRef.current='saving';setState('saving');setError('');
     try {
+      if(existing){
+        const result=await window.codexMarks.library({op:'delete',id:existing.mark_id});
+        if(!result?.ok)throw new Error(result?.error||'取消失败，请重试');
+        cache=cache.filter(mark=>mark.mark_id!==existing.mark_id);
+        selectedElement?.removeAttribute('data-codex-mark-saved-block');
+        stateRef.current='ready';setState('ready');schedule(true);
+        window.dispatchEvent(new Event('codex-marks-changed'));
+        return;
+      }
       const ticket=await ticketPromise;
       if(!ticket?.ok) throw new Error('请重新点击 mark');
       const element=entry.element();
@@ -133,9 +143,9 @@ export function renderMarkButton(React, jsx, Button, props) {
       element.setAttribute('data-codex-mark-saved-block','');
       stateRef.current='saved';setState('saved');schedule(true);
       window.dispatchEvent(new Event('codex-marks-changed'));
-    } catch(err) {stateRef.current='error';setState('error');setError(err?.message||'保存失败，请重试');}
+    } catch(err) {const restored=existing?'saved':'error';stateRef.current=restored;setState(restored);setError(err?.message||'操作失败，请重试');}
   };
-  const saved=state==='saved', title=error || (saved?'已 mark':state==='saving'?'正在 mark…':state==='loading'?'正在读取标记位置':state==='unavailable'?'无法确认来源位置':'mark');
+  const saved=state==='saved', title=error || (saved?'取消 mark':state==='saving'?'正在 mark…':state==='loading'?'正在读取标记位置':state==='unavailable'?'无法确认来源位置':'mark');
   return jsx.jsx('span',{ref,'data-codex-mark-button':'','data-markdown-copy':'exclude',style:{display:'inline-flex'},title,
     children:jsx.jsx(Button,{type:'button',color:'ghost',size:'icon',onClick:click,disabled:state==='saving'||state==='loading'||state==='unavailable',
       'aria-label':title,'aria-pressed':saved,title,style:{width:28,height:28,padding:5,border:0,borderRadius:6,background:typeof Button==='string'?'transparent':undefined,color:saved?'#d39620':'inherit',cursor:'pointer'},
