@@ -63,7 +63,7 @@ function mount(entry) {
   entries.add(entry);
   if (!observer) {
     const style = new CSSStyleSheet();
-    style.replaceSync('[data-codex-mark-saved-block]{outline:2px solid #d39620;outline-offset:3px}table[data-codex-mark-saved-block]{outline-offset:-2px}');
+    style.replaceSync('[data-codex-mark-saved-block]{outline:2px solid #d39620;outline-offset:3px}table[data-codex-mark-saved-block]{outline-offset:-2px;padding:8px 12px}');
     document.adoptedStyleSheets = [...document.adoptedStyleSheets,style];
     observer = new MutationObserver(records => {
       if (records.some(record => !record.target.parentElement?.closest('[data-codex-mark-button]'))) schedule();
