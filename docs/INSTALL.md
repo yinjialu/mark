@@ -14,7 +14,7 @@ mark 有两部分：标准 Codex 插件负责收藏和检索；本机界面适�
 我同意在本机从正式 Codex 生成独立副本、本地重签名，并仅在副本启用 disable-library-validation；同意安装 ~/Applications/mark.app，完成后正常退出当前 Codex 并切换到副本。不要修改正式应用或系统全局安全设置。
 执行 python3 -B mark.py install --accept-local-resign。若 Codex CLI 可用且未安装同名插件，再按文档安装可选标准插件；不要删除已有 marketplace 或同名插件。
 最后执行 python3 -B mark.py launch --switch --detached。记录返回的 result_file，重启后检查结果；switch_scheduled 只表示已安排，不能当作启动成功。
-请告诉我左侧 mark 入口的位置，并提醒我选一段示例文字点 mark 做一次实际保存和定位验收。
+请告诉我：日常使用运行中的 ChatGPT mark，可将它固定到 Dock；正式版仍保留供升级使用。从 Dock 移除旧入口不会卸载正式版，修改 Dock 前请先确认我的偏好。最后说明左侧 mark 入口的位置，并提醒我选一段示例文字做一次实际保存和定位验收。
 ```
 
 仓库代码会在本机执行，建议先审阅再运行。完整流程无需提供 GitHub 凭据、API key 或上传任务记录。
@@ -65,9 +65,9 @@ codex plugin add codex-marks@mark
 
 ## 日常打开、升级与回退
 
-- 打开 `~/Applications/mark.app`，进入适配后的 Codex。收藏库在左侧 **mark**。
-- 正式 Codex 升级后，启动器重新检查兼容性。已有适配器时自动生成副本；未知版本停止，等待新的 mark 发布包。
-- 更新 mark：把新版解压到新目录，再执行安装命令。旧的已运行副本保留供回退。
+- 首次通过 `~/Applications/mark.app` 启动，运行中的副本名为 **ChatGPT mark**。将这个运行中的应用固定到 Dock，日常从它打开；收藏库位于左侧 **mark**。完整步骤见[使用指南](USAGE.md#日常只用一个入口)。
+- 正式 Codex 升级后，重新运行 `~/Applications/mark.app`，让启动器检查兼容性。已有适配器时自动生成副本；未知版本停止，等待新的 mark 发布包。
+- 更新 mark：把新版解压到新目录，再执行安装和切换命令。成功切换后，已有的 Dock mark 入口自动更新；旧的已运行副本保留供回退。
 - 回退：`python3 -B mark.py rollback --switch --detached`。首次安装没有旧副本时会说明原因。
 - 改用正式版：正常退出测试副本后打开原始 Codex 应用。
 
@@ -77,7 +77,7 @@ codex plugin add codex-marks@mark
 
 1. 左侧“插件”下方出现 **mark**；打开后是主内容区页面。
 2. 选中回复文字，原生浮栏有 **mark**，点击变为 **✓ mark**；取消选区后出现下划线。
-3. mark 页面能找到新收藏，“定位原文”能回到来源；原文变化时可能退到消息或快照。
+3. mark 页面能找到新收藏，“定位原文”能回到来源；原文变化时可能退到对应消息或轮次；未找到时留在当前任务提示重试，可手动打开收藏库查看快照。
 4. 图片、Mermaid、表格旁的书签按钮可保存完整内容；右侧导航悬停有连续波动效果。
 
 入口缺失：先用 `mark.py status` 检查 active 路径，确认打开的是副本。正式应用不会显示这些入口。若启动失败，提交 issue 时只提供 macOS、架构、客户端版本、错误摘要；日志可能包含个人路径，不要直接上传全部日志或对话。
