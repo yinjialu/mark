@@ -32,4 +32,12 @@ python3 -B scripts/checksums.py
 python3 -B mark.py doctor
 ```
 
-更新清单前检查待发布文件，禁止添加客户端应用、提取的完整 JS/CSS、签名材料、数据库、真实用户截图或对话。Git 元数据不参与包校验，也不复制到安装目录。将干净提交打标签后用 `git archive` 生成 ZIP，单独发布 ZIP 的 SHA256；校验值用于完整性检查，不是发布者数字签名。
+更新清单前检查待发布文件，禁止添加客户端应用、提取的完整 JS/CSS、签名材料、数据库、未经用户授权公开的真实截图或对话。Git 元数据不参与包校验，也不复制到安装目录。将干净提交打标签后用 `git archive` 生成 ZIP，单独发布 ZIP 的 SHA256；校验值用于完整性检查，不是发布者数字签名。
+
+## 更新发布协议
+
+从 preview.12 起，`compatibility.json` 声明 `update_protocol: 1`。每次发布须一起上传 ZIP、对应 `.zip.sha256` 和该版本的 `compatibility.json`；先创建草稿并上传全部资产，再发布。缺失任一文件的版本不参与自动选择。发布后不要移动标签或替换已有资产，应发布新版本。
+
+更新器读取 [GitHub Releases API](https://docs.github.com/en/rest/releases/releases)，包含公开预览版，按版本号排序，匹配本机客户端版本、build、架构和 ASAR header 哈希。检查只下载元数据，安装需用户确认。下载 ZIP 后核对发布资产摘要、外部 SHA256、包内文件清单和兼容性；拒绝路径穿越、符号链接、重复路径和超大解压包。
+
+`upgrade` 在同一个安装锁内完成构建、启动器替换和启动检查。失败时恢复旧启动器及 active/prepared/previous 状态；成功后沿用 Dock 更新机制。网络与更新进度保存到用户状态目录，仓库不包含这些文件。

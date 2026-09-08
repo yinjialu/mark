@@ -106,6 +106,7 @@ function captureBlock(payload, resourcesPath, run = spawn) { return runBackend(p
 function register() {
   const {app, ipcMain, nativeImage} = require("electron");
   require('./codex-marks-library.cjs').registerLibrary({app, ipcMain}, trustedSender);
+  require('./codex-marks-update.cjs').registerUpdates({app, ipcMain}, trustedSender);
   const {randomUUID} = require('node:crypto');
   const tickets = new Map();
   const pending = new Set();

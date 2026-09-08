@@ -88,6 +88,41 @@ export function createMarksUI(React,jsx,ui){
       h('div',{className:'mark-detail-actions'},button('上一页',()=>setOffset(Math.max(0,offset-50)),{disabled:busy||offset===0}),button('下一页',()=>setOffset(offset+50),{disabled:busy||offset+50>=total}))),
       selected?h(Detail,{key:selected,id:selected,onChange:()=>{setLocalRev(v=>v+1);},onJump}):h('div',{className:'mark-detail-empty'},'选择一条收藏，查看内容和来源'));
   }
+  function Updates(){
+    const [info,setInfo]=React.useState(null),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[later,setLater]=React.useState(false);
+    const alive=React.useRef(false),working=React.useRef(false);
+    const active=s=>['scheduled','downloading','installing'].includes(s);
+    const request=async payload=>{const r=await window.codexMarks.updates(payload);if(!r?.ok)throw Error(r?.error||'暂时无法检查更新');return r;};
+    async function check(force=false){
+      if(working.current)return;working.current=true;setBusy(true);setError('');setLater(false);
+      try{const r=await request({op:'check',force});if(alive.current)setInfo(r);}catch(e){if(alive.current)setError(e.message);}finally{working.current=false;if(alive.current)setBusy(false);}
+    }
+    React.useEffect(()=>{
+      alive.current=true;
+      if(window.codexMarks?.updates){
+        working.current=true;setBusy(true);
+        request({op:'status'}).then(async r=>active(r.status)||r.status==='error'?r:request({op:'check',force:false})).then(r=>{if(alive.current)setInfo(r);}).catch(e=>{if(alive.current)setError(e.message);}).finally(()=>{working.current=false;if(alive.current)setBusy(false);});
+      }
+      return()=>{alive.current=false;};
+    },[]);
+    React.useEffect(()=>{
+      if(!active(info?.status))return;
+      const timer=setInterval(()=>{if(working.current)return;working.current=true;request({op:'status'}).then(r=>{if(alive.current)setInfo(r);}).catch(e=>{if(alive.current)setError(e.message);}).finally(()=>{working.current=false;});},2000);
+      return()=>clearInterval(timer);
+    },[info?.status]);
+    async function install(){
+      if(working.current||!info?.ticket)return;
+      working.current=true;setBusy(true);setError('');
+      try{const r=await request({op:'install',ticket:info.ticket});if(alive.current)setInfo(r);}catch(e){if(alive.current)setError(e.message);}finally{working.current=false;if(alive.current)setBusy(false);}
+    }
+    if(!window.codexMarks?.updates)return null;
+    const progress={scheduled:'已安排更新，完成后将重启',downloading:'正在下载并校验更新…',installing:'正在安装，完成后将重启…',complete:'更新已完成',error:'更新未完成，旧版本已保留'};
+    return h('div',{className:'mark-updates','data-codex-mark-updates':''},
+      h('span',{className:'text-tertiary text-xs',role:'status'},error||progress[info?.status]||(busy?'正在检查更新…':info?.status==='available'?'发现 mark '+info.version:info?.message||'mark 更新')),
+      info?.current_version?h('span',{className:'text-tertiary text-xs'},'当前 '+info.current_version):null,
+      info?.status==='available'&&!later?h(jsx.Fragment,{},button('安装并重启',install,{disabled:busy}),button('暂不更新',()=>setLater(true),{disabled:busy})):null,
+      !active(info?.status)?button('检查更新',()=>void check(true),{disabled:busy}):null);
+  }
   function Page({navigate,sourceThreadId='',selectedId=null,initialNotice=''}){
     const [selected,setSelected]=React.useState(selectedId),[query,setQuery]=React.useState(''),[revision,setRevision]=React.useState(0);
     const threadId=uuid.test(sourceThreadId)?sourceThreadId:'';
@@ -97,6 +132,7 @@ export function createMarksUI(React,jsx,ui){
     return h('main',{className:'mark-page','data-codex-mark-page':'','aria-label':'mark 收藏库'},h('style',{},styles),
       h(PageLayout,{title:'mark',subtitle:'收藏与原文',headerVariant:'inset',contentWidth:'extraWide',contentClassName:'mark-page-content',animateContentLayout:false,
         search:{id:'mark-page-search',label:'搜索收藏',placeholder:'搜索原文、任务、标签或备注',searchQuery:query,onSearchQueryChange:value=>setQuery(value.slice(0,500)),autoFocus:false}},
+        h(Updates,{}),
         initialNotice?h('p',{role:'status',className:'text-secondary text-sm'},initialNotice):null,
         window.codexMarks?.library?h(Library,{threadId,onJump:jump,selected,onSelect:setSelected,revision,query}):h('p',{role:'status'},'mark 暂不可用，请通过 mark 启动器打开适配后的客户端。')));
   }
@@ -196,6 +232,7 @@ export function createMarksUI(React,jsx,ui){
   };
 }
 const styles=`
+.mark-updates{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:12px;min-height:32px}
 ::highlight(codex-mark-jump){background-color:#d3962040;color:inherit}
 .mark-rail{position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:20;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--color-text-tertiary,var(--color-text));-webkit-app-region:no-drag}
 .mark-rail-lines{max-height:60vh;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;align-items:flex-end}

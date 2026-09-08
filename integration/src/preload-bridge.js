@@ -5,6 +5,10 @@
   if (process.isMainFrame === false || window.top !== window) return;
   const {contextBridge, ipcRenderer} = require("electron");
   contextBridge.exposeInMainWorld("codexMarks", Object.freeze({
+    updates(request) {
+      if (request?.op === "install" && !navigator.userActivation?.isActive) return Promise.reject(new Error("请点击安装并重启"));
+      return ipcRenderer.invoke("local.codex-marks:updates:v1", request);
+    },
     library(request) {
       if (!['search', 'get'].includes(request?.op) && !navigator.userActivation?.isActive) return Promise.reject(new Error('请点击按钮更新收藏'));
       return ipcRenderer.invoke('local.codex-marks:library:v1', request);

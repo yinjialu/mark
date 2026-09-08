@@ -22,6 +22,7 @@ BLOCKS = "webview/assets/codex-marks-blocks.js"
 RAIL = "webview/assets/thread-user-message-navigation-rail-app-555e91d9ccfc.js"
 LIBRARY = "webview/assets/codex-marks-library.js"
 LIBRARY_BRIDGE = ".vite/build/codex-marks-library.cjs"
+UPDATE_BRIDGE = ".vite/build/codex-marks-update.cjs"
 SIDEBAR = "webview/assets/codex-marks-sidebar.js"
 
 
@@ -254,6 +255,7 @@ def prepare(app, output, plugin):
         INITIAL: initial.encode(), MERMAID: mermaid.encode(), BLOCKS: (ROOT / "src/block-buttons.mjs").read_bytes(),
         RAIL: rail.encode(), LIBRARY: (ROOT / 'src/library-ui.mjs').read_bytes(),
         LIBRARY_BRIDGE: (ROOT / 'src/library-bridge.cjs').read_bytes(),
+        UPDATE_BRIDGE: (ROOT / 'src/update-bridge.cjs').read_bytes(),
         SIDEBAR: (ROOT / 'src/sidebar.mjs').read_bytes(),
     }
     resources = output / "Contents/Resources"

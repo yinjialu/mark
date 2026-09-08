@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Portable, version-pinned local client installer. No network or bookmark writes."""
+"""Version-pinned client installer with opt-in GitHub release updates."""
 from __future__ import annotations
 import argparse
 from contextlib import contextmanager
@@ -207,9 +207,12 @@ def build(app, state, accept=False):
         info = plistlib.loads(info_path.read_bytes())
         info.update(CFBundleName='ChatGPT mark', CFBundleDisplayName='ChatGPT mark')
         info_path.write_bytes(plistlib.dumps(info))
+        atomic_json(target / 'Contents/Resources/codex-marks/update-config.json', {
+            'package': str(state / 'packages' / package_id), 'package_id': package_id,
+            'state': str(state), 'source_app': str(app)})
         sign_copy(app, target, check['adapter'], directory)
         record = {'app': str(target), 'version': check['version'], 'source_app': str(app), 'source_header_sha256': check['source_header_sha256'],
-                  'patched_header_sha256': report['patched_header_sha256'], 'package_id': package_id, 'created_at': stamp(), 'adapter_id': check['adapter']['id']}
+                  'patched_header_sha256': report['patched_header_sha256'], 'package_id': package_id, 'mark_version': read_json(ROOT / 'compatibility.json')['release'], 'created_at': stamp(), 'adapter_id': check['adapter']['id']}
         verified(record)
         if doctor(app)['source_header_sha256'] != check['source_header_sha256']:
             raise MarkError('正式客户端在构建期间升级，请重新运行安装器。')
@@ -375,7 +378,44 @@ def install_launcher(state, app, launcher_dir):
     finally:
         if temporary.exists():
             shutil.rmtree(temporary)
+    atomic_json(state / "launcher.json", {"path": str(launcher)})
     return package, launcher
+
+
+def upgrade_transaction(app, state, accept=False, switch=False):
+    """Hold the manager lock across build, launcher replacement and launch."""
+    before = read_json(state / 'state.json', {})
+    launcher = Path(read_json(state / 'launcher.json', {}).get('path', str(Path.home() / 'Applications/mark.app')))
+    backup = state / 'launcher-backups' / ('update-' + uuid.uuid4().hex + '.app')
+    if launcher.exists():
+        info = plistlib.loads((launcher / 'Contents/Info.plist').read_bytes())
+        if info.get('CFBundleIdentifier') != 'local.mark.launcher':
+            raise MarkError('启动器路径已被其他应用使用，已停止更新。')
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(launcher, backup)
+    installed = False
+    try:
+        record = build(app, state, accept)
+        install_launcher(state, app, launcher.parent)
+        installed = True
+        return launch_record(record, state, switch)
+    except Exception:
+        if installed:
+            if launcher.exists():
+                failed = state / 'launcher-backups' / ('failed-' + uuid.uuid4().hex + '.app')
+                failed.parent.mkdir(parents=True, exist_ok=True)
+                launcher.rename(failed)
+            if backup.exists():
+                backup.rename(launcher)
+        # Keep failed build diagnostics but restore known working state.
+        current = read_json(state / 'state.json', {})
+        for key in ('active', 'prepared', 'previous'):
+            if key in before:
+                current[key] = before[key]
+            else:
+                current.pop(key, None)
+        atomic_json(state / 'state.json', current)
+        raise
 
 
 def codex_cli():
@@ -400,7 +440,17 @@ def main():
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('doctor')
     sub.add_parser('status')
-    for name in ('prepare', 'install', 'launch', 'rollback'):
+    sub.add_parser('update-status')
+    checker = sub.add_parser('check-update')
+    checker.add_argument('--force', action='store_true')
+    for name in ('update', 'install-latest'):
+        updater = sub.add_parser(name)
+        updater.add_argument('--yes', action='store_true', help='确认下载、安装兼容更新并重启')
+        updater.add_argument('--ticket')
+        updater.add_argument('--accept-local-resign', action='store_true')
+        updater.add_argument('--detached', action='store_true')
+        updater.add_argument('--deferred-result', type=Path, help=argparse.SUPPRESS)
+    for name in ('prepare', 'install', 'launch', 'rollback', 'upgrade'):
         p = sub.add_parser(name)
         p.add_argument('--accept-local-resign', action='store_true')
         p.add_argument('--switch', action='store_true')
@@ -420,6 +470,34 @@ def main():
         if deferred_result:
             signal.signal(signal.SIGHUP, signal.SIG_IGN)
             time.sleep(8)
+        if args.command in ('check-update', 'update-status', 'update', 'install-latest'):
+            import updater
+            if args.command == 'update-status':
+                result = read_json(state / 'update-job.json', {'status': 'idle'})
+            else:
+                app = source_app(args.app)
+                if args.command == 'check-update':
+                    result = updater.check(sys.modules[__name__], app, state, args.force)
+                else:
+                    ticket = args.ticket
+                    if not ticket:
+                        result = updater.check(sys.modules[__name__], app, state, force=True)
+                        ticket = result.get('ticket')
+                    if ticket and args.yes:
+                        if not args.accept_local_resign and not read_json(state / 'consent.json', {}).get('local_resign'):
+                            raise MarkError('首次安装请明确接受本地签名：添加 --accept-local-resign。')
+                        if args.detached:
+                            with lock(state / 'update-scheduling'):
+                                result = updater.schedule(sys.modules[__name__], app, state, ticket, args.accept_local_resign)
+                        else:
+                            with lock(state / 'update-worker'):
+                                result = updater.apply(sys.modules[__name__], app, state, ticket, args.accept_local_resign)
+                    elif ticket:
+                        result = {'status': 'confirmation_required', 'ticket': ticket, 'message': '请确认后使用 --yes 下载、安装并重启'}
+            if deferred_result:
+                atomic_json(deferred_result, result)
+            print(json.dumps(result, ensure_ascii=False))
+            return 0
         if getattr(args, 'detached', False):
             result = schedule_switch(source_app(args.app), state, args.command, args.switch, args.accept_local_resign)
             print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -432,7 +510,9 @@ def main():
                 result = doctor(app)
             else:
                 with lock(state):
-                    if args.command == 'rollback':
+                    if args.command == 'upgrade':
+                        result = upgrade_transaction(app, state, args.accept_local_resign, args.switch)
+                    elif args.command == 'rollback':
                         prior = read_json(state / 'state.json', {}).get('previous')
                         if not prior:
                             raise MarkError('还没有可回退的已启动版本。当前副本和收藏数据保留。')

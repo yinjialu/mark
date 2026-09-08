@@ -7,14 +7,14 @@ mark 有两部分：标准 Codex 插件负责收藏和检索；本机界面适�
 在自己的 Codex 中粘贴以下内容。它包含本地签名和重启授权；安装前请结束其他正在执行的任务。
 
 ```text
-请帮我安装 mark：https://github.com/yinjialu/mark ，使用 v0.1.0-preview.11 标签。
-请先阅读该版本的 README.md 和 docs/INSTALL.md，检查安装代码和 SHA256SUMS.json。
-将该标签克隆到我的用户目录下一个新的 mark 目录，保留已有目录和收藏；不要覆盖已有 checkout。
-运行 python3 -B mark.py doctor。只有返回 supported 时才继续；不支持就停止并告诉我检测到的版本，不要绕过版本、签名或完整性检查。
-我同意在本机从正式 Codex 生成独立副本、本地重签名，并仅在副本启用 disable-library-validation；同意安装 ~/Applications/mark.app，完成后正常退出当前 Codex 并切换到副本。不要修改正式应用或系统全局安全设置。
-执行 python3 -B mark.py install --accept-local-resign。若 Codex CLI 可用且未安装同名插件，再按文档安装可选标准插件；不要删除已有 marketplace 或同名插件。
-最后执行 python3 -B mark.py launch --switch --detached。记录返回的 result_file，重启后检查结果；switch_scheduled 只表示已安排，不能当作启动成功。
-请告诉我：日常使用运行中的 ChatGPT mark，可将它固定到 Dock；正式版仍保留供升级使用。从 Dock 移除旧入口不会卸载正式版，修改 Dock 前请先确认我的偏好。最后说明左侧 mark 入口的位置，并提醒我选一段示例文字做一次实际保存和定位验收。
+请帮我安装 mark：https://github.com/yinjialu/mark 的最新兼容版本，不要固定旧标签。
+先阅读 main 分支的 README.md 和 docs/INSTALL.md，检查安装代码。将 main 克隆到我的用户目录下一个新目录，保留已有 checkout 和收藏。
+校验 SHA256SUMS.json 后，运行 python3 -B mark.py check-update --force；它会查询 GitHub 的完整发布列表（含公开预览版），筛选与本机正式客户端版本、build、架构和包哈希一致的最新版本。
+只有结果为 available 时继续；若为 up_to_date，说明已有最新兼容版本；离线、无兼容版本或任何检查失败都停止并说明原因，不绕过检查。
+我同意从该仓库下载所选正式发布包并校验，在本机从正式客户端生成独立副本、本地重签名，并仅在副本启用 disable-library-validation；同意安装 ~/Applications/mark.app，完成后正常退出当前客户端并切换到 ChatGPT mark。不要修改正式应用或系统全局安全设置。
+执行 python3 -B mark.py install-latest --yes --accept-local-resign --detached。记录返回的 result_file 和 log；scheduled 只表示已安排，要检查最后的 complete 或 error 状态。
+若 Codex CLI 可用且未安装同名插件，可按文档安装可选标准插件；不要删除已有 marketplace 或同名插件。
+告诉我如何固定运行中的 ChatGPT mark 到 Dock，以及左侧 mark 中“检查更新”的位置；修改 Dock 前先确认我的偏好。最后请我标记一段示例文字，验证保存和原文定位。
 ```
 
 仓库代码会在本机执行，建议先审阅再运行。完整流程无需提供 GitHub 凭据、API key 或上传任务记录。
@@ -34,21 +34,22 @@ mark 有两部分：标准 Codex 插件负责收藏和检索；本机界面适�
 
 ## 手动安装
 
-从 [预览版发布页](https://github.com/yinjialu/mark/releases/tag/v0.1.0-preview.11) 下载 ZIP 和 SHA256，校验后解压，双击 `Install.command`，输入 `install`。
+从 [发布列表](https://github.com/yinjialu/mark/releases) 选择兼容版本，下载 ZIP 和 SHA256，校验后解压，双击 `Install.command`，输入 `install`。此方式安装你选定的版本，适合固定版本复现。
 
-也可以在终端执行（目标目录须不存在）：
+也可以让安装器选择最新兼容版本（目标目录须不存在）：
 
 ```sh
-git clone --branch v0.1.0-preview.11 --depth 1 https://github.com/yinjialu/mark.git "$HOME/mark"
+git clone --branch main --depth 1 https://github.com/yinjialu/mark.git "$HOME/mark"
 cd "$HOME/mark"
-python3 -B mark.py doctor
-python3 -B mark.py install --accept-local-resign
-python3 -B mark.py launch --switch --detached
+python3 -B mark.py check-update --force
+python3 -B mark.py install-latest --yes --accept-local-resign --detached
 ```
 
-检查 doctor 返回 `supported` 后再执行安装。非默认正式版路径可使用 `python3 -B mark.py --app '/Applications/Codex.app' doctor`，其他命令也应带相同参数。
+先检查查询结果：`available` 表示存在可安装的兼容版本；`up_to_date` 表示已安装最新兼容版本；`no_compatible_release` 或 `offline` 时停止。新安装会查询 GitHub 发布信息，不执行下载包中的代码，直到你明确使用 `--yes`。
 
-约 8 秒后执行切换，随后观察新进程持续运行 20 秒。后台结果写入命令返回的 `result_file`：`running` 表示通过进程存活检查，**不替代实际按钮与保存功能验收**；`error` 表示失败，应查看相邻 log 和 `~/Library/Application Support/mark/last-launch-error.json`。失败时尝试重新打开切换前运行的客户端。
+非默认正式版路径，在命令前加 `--app`，例如 `python3 -B mark.py --app '/Applications/Codex.app' check-update --force`。其他命令也应使用同一路径。
+
+后台更新先等待约 8 秒，再下载、校验、构建并切换。`result_file` 中的 `complete` 表示更新流程已完成；切换期间会检查新进程稳定运行 20 秒，**不替代实际按钮与保存功能验收**。`error` 时查看相邻 log，收藏和旧副本保留。下载或构建失败不会关闭当前客户端；切换失败时尝试重新打开切换前的客户端，并恢复旧启动器。
 
 ## 可选：安装标准插件
 
@@ -65,13 +66,27 @@ codex plugin add codex-marks@mark
 
 ## 日常打开、升级与回退
 
-- 首次通过 `~/Applications/mark.app` 启动，运行中的副本名为 **ChatGPT mark**。将这个运行中的应用固定到 Dock，日常从它打开；收藏库位于左侧 **mark**。完整步骤见[使用指南](USAGE.md#日常只用一个入口)。
-- 正式 Codex 升级后，重新运行 `~/Applications/mark.app`，让启动器检查兼容性。已有适配器时自动生成副本；未知版本停止，等待新的 mark 发布包。
-- 更新 mark：把新版解压到新目录，再执行安装和切换命令。成功切换后，已有的 Dock mark 入口自动更新；旧的已运行副本保留供回退。
-- 回退：`python3 -B mark.py rollback --switch --detached`。首次安装没有旧副本时会说明原因。
-- 改用正式版：正常退出测试副本后打开原始 Codex 应用。
+- 首次通过 `~/Applications/mark.app` 启动，将运行中的 **ChatGPT mark** 固定到 Dock；日常从 Dock 打开。完整步骤见[使用指南](USAGE.md#日常只用一个入口)。
+- 在左侧 **mark** 收藏页点击 **检查更新**。打开此页时也会自动检查，成功结果缓存 24 小时，网络失败缓存 15 分钟；手动检查跳过缓存。
+- 发现兼容更新后，点击 **安装并重启** 确认，或选择 **暂不更新**。只有确认后才下载 ZIP，核对发布包 SHA256、文件清单和兼容性，再构建和切换。
+- 成功升级或回退后，已有的 Dock mark 入口自动更新；旧副本保留供回退。
+- 正式客户端升级后，先在 mark 中检查是否已有匹配的新适配器；也可重新运行 `~/Applications/mark.app` 检查当前包的兼容性。没有适配器时继续使用已有副本，等待新的发布包。
+- 回退：在安装包目录执行 `python3 -B mark.py rollback --switch --detached`。首次安装没有旧副本时会说明原因。
+- 改用正式版：正常退出 ChatGPT mark，再打开原始客户端。
 
-不自动下载远程补丁，不保证未来版本自动兼容。测试副本与正式版使用原有 Codex 用户环境，**不是隔离账号或沙盒**；不要同时运行多个副本。
+终端也可以更新：
+
+```sh
+python3 -B mark.py check-update --force
+python3 -B mark.py update --yes --detached
+python3 -B mark.py update-status
+```
+
+自动选择仅使用本仓库已发布、上传完整且带有更新协议清单的版本，包含公开预览版，排除草稿和不兼容版本；不会自动降级。SHA256 用于检测文件损坏，下载来源由固定仓库的 GitHub HTTPS 地址限定，并非 Developer ID 签名或 Apple 公证。不会静默安装，也不保证未来客户端版本自动兼容。
+
+**preview.11 及更早版本没有更新入口**，需要按上面的新安装流程更新一次。已复制的旧版固定标签指令不会自动改变。更新机制从 preview.12 起提供，更新的是客户端适配器和启动器；可选标准插件仍通过 Codex 插件管理更新。
+
+测试副本与正式版使用原有 Codex 用户环境，**不是隔离账号或沙盒**；不要同时运行多个副本。
 
 ## 验收和排错
 

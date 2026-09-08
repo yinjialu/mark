@@ -4,7 +4,7 @@
 
 选中文字点 **mark**；图片、Mermaid 图表和表格也能保存。通过右侧导航回看当前任务，或在左侧 **mark** 页面搜索所有收藏。
 
-[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载预览版](https://github.com/yinjialu/mark/releases/tag/v0.1.0-preview.11) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md)
+[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载预览版](https://github.com/yinjialu/mark/releases) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md)
 
 > 开发者预览版。目前界面集成仅支持 **macOS Apple Silicon，Codex 26.901.51231 / build 8109**，还会校验客户端包的完整性。不是 OpenAI 官方项目；其他版本会停止安装，等待适配。
 
@@ -20,11 +20,19 @@ Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会�
 
 收藏库位于 Codex 主内容区，复用原生页面布局、搜索、Tabs 标签切换、按钮和侧边栏组件。文字保留上下文与高亮，表格保留完整行列。
 
-![mark 内置收藏库：搜索、上下文与原文定位](docs/images/library.png)
+### 表格收藏
 
-![mark 表格收藏：保存完整行列和来源](docs/images/table.png)
+左侧选择收藏，右侧直接查看完整表格；支持定位原文、复制内容，以及编辑标题、标签和备注。
 
-*以上为原生组件独立演示页截图，使用虚构数据；不含真实用户的任务、账号或收藏。演示截图不替代实际客户端验收。*
+![ChatGPT mark 实际客户端：内置收藏库与完整表格预览](docs/images/client-table.png)
+
+### Mermaid 图表收藏
+
+保存的 Mermaid 图表在收藏库中直接渲染，保留来源任务，方便回到原文继续阅读。
+
+![ChatGPT mark 实际客户端：Mermaid 图表预览与来源定位入口](docs/images/client-mermaid.png)
+
+*以上为用户提供并授权展示的实际客户端截图，展示标记后的使用示例。截图拍摄于新增更新入口之前。*
 
 ## 能做什么
 
@@ -33,6 +41,7 @@ Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会�
 - **快速回看**：右侧短横线悬停预览、连续波动，点击定位标记。
 - **统一收藏库**：左侧 mark 进入原生页面，支持搜索、标签、备注、回收站与恢复。
 - **保留来源**：保存来源任务和选区/块位置。精确匹配失败时退到对应消息或轮次；未找到原文时留在任务中，可主动打开收藏库查看快照。
+- **检查更新**：在 mark 收藏页查看兼容更新，点击“安装并重启”；下载校验通过后切换，失败保留旧版本。
 - **本地保存**：SQLite 和快照资产留在本机，支持导出和备份；不含跨设备同步。
 
 ## 让你的 Codex 帮你安装
@@ -40,8 +49,8 @@ Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会�
 把下面这句话发给 Codex，再复制安装文档中包含本地签名与重启授权的完整指令：
 
 ```text
-请阅读 https://github.com/yinjialu/mark/blob/v0.1.0-preview.11/docs/INSTALL.md，
-按照“复制给 Codex 自动安装”部分帮我安装 mark。先确认我的客户端版本兼容。
+请帮我安装 mark：https://github.com/yinjialu/mark 的最新兼容版本。
+先阅读 main 分支的 docs/INSTALL.md，按“复制给 Codex 自动安装”执行；不要固定旧标签，也不要绕过兼容性检查。
 ```
 
 [打开完整安装指令 →](docs/INSTALL.md#复制给-codex-自动安装)
@@ -52,7 +61,7 @@ Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会�
 
 仓库分发「标准 Codex 插件 + 本机界面适配器」，不分发 Codex 客户端。安装器使用**对方 Mac 上已有的正式版**生成独立副本，进行本地签名，只给副本添加 `disable-library-validation` 权限。不会覆盖正式应用或修改系统全局安全设置。
 
-日常 Dock 入口直接打开当前副本。正式版升级后，通过 `~/Applications/mark.app` 启动会重新检查正式版。支持的版本自动生成或复用副本；未知版本停止，等待新的 mark 包。切换成功后保留上一已运行版本供回退。启动失败时尝试恢复切换前的客户端。不会自动下载远程补丁。
+日常 Dock 入口直接打开当前副本。正式版升级后，通过 `~/Applications/mark.app` 启动会重新检查正式版。支持的版本自动生成或复用副本；未知版本停止，等待新的 mark 包。mark 收藏页每天最多自动检查一次发布信息，也可点击“检查更新”。检查会包含公开预览版，按版本号选择匹配本机客户端的发布包；只有点击“安装并重启”才下载和安装。切换成功后保留上一已运行版本，失败时恢复旧启动器和版本状态。断网不影响现有副本。
 
 测试副本复用原有 Codex 用户环境，不是隔离账号。源码兼容性检查、签名检查和进程存活检查不能替代实际点击验收。本包尚未完成第二台 Mac 首装与 Gatekeeper 提示验收，也没有 Developer ID 签名或 Apple 公证。
 
