@@ -4,7 +4,7 @@
 
 选中文字点 **mark**；图片、Mermaid 图表和表格也能保存。通过右侧导航回看当前任务，或在左侧 **mark** 页面搜索所有收藏。
 
-[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载预览版](https://github.com/yinjialu/mark/releases) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md)
+[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载预览版](https://github.com/yinjialu/mark/releases) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md) · [官方目录收录说明](docs/PUBLISHING.md)
 
 > 开发者预览版。目前界面集成仅支持 **macOS Apple Silicon，Codex 26.901.51231 / build 8109**，还会校验客户端包的完整性。不是 OpenAI 官方项目；其他版本会停止安装，等待适配。
 
