@@ -340,12 +340,18 @@ def install_launcher(state, app, launcher_dir):
     executable = temporary / 'Contents/MacOS/mark'
     executable.parent.mkdir(parents=True, exist_ok=True)
     args = ['/usr/bin/python3', '-B', str(package / 'mark.py'), '--app', str(app), '--state-dir', str(state), '--gui', 'launch', '--switch']
-    executable.write_text('#!/bin/sh\nexec ' + shlex.join(args) + '\n')
-    executable.chmod(0o755)
+    script = temporary / 'Contents/Resources/launch.sh'
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text('#!/bin/sh\nexec ' + shlex.join(args) + '\n')
+    script.chmod(0o755)
     info = {'CFBundleIdentifier': 'local.mark.launcher', 'CFBundleName': 'mark', 'CFBundleDisplayName': 'mark',
-            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.0', 'LSUIElement': True}
+            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.0', 'LSUIElement': True,
+            'LSArchitecturePriority': ['arm64'], 'LSMinimumSystemVersion': '11.0'}
     (temporary / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     try:
+        run(['/usr/bin/xcrun', 'clang', '-arch', 'arm64', '-mmacosx-version-min=11.0',
+             '-Os', '-Wall', '-Wextra', '-Werror', ROOT / 'integration/src/launcher.c', '-o', executable], capture_output=True)
+        run(['/usr/bin/lipo', executable, '-verify_arch', 'arm64'], capture_output=True)
         run(['/usr/bin/codesign', '--force', '--sign', '-', temporary], capture_output=True)
         run(['/usr/bin/codesign', '--verify', '--deep', '--strict', temporary], capture_output=True)
         if previous:

@@ -7,7 +7,7 @@ mark 有两部分：标准 Codex 插件负责收藏和检索；本机界面适�
 在自己的 Codex 中粘贴以下内容。它包含本地签名和重启授权；安装前请结束其他正在执行的任务。
 
 ```text
-请帮我安装 mark：https://github.com/yinjialu/mark ，使用 v0.1.0-preview.8 标签。
+请帮我安装 mark：https://github.com/yinjialu/mark ，使用 v0.1.0-preview.9 标签。
 请先阅读该版本的 README.md 和 docs/INSTALL.md，检查安装代码和 SHA256SUMS.json。
 将该标签克隆到我的用户目录下一个新的 mark 目录，保留已有目录和收藏；不要覆盖已有 checkout。
 运行 python3 -B mark.py doctor。只有返回 supported 时才继续；不支持就停止并告诉我检测到的版本，不要绕过版本、签名或完整性检查。
@@ -25,7 +25,7 @@ mark 有两部分：标准 Codex 插件负责收藏和检索；本机界面适�
 | --- | --- |
 | 系统 | macOS，Apple Silicon / arm64 |
 | Codex | 26.901.51231，build 8109，原始 OpenAI 签名 |
-| 工具 | Command Line Tools：git、codesign、`/usr/bin/python3` |
+| 工具 | Command Line Tools：git、clang、codesign、`/usr/bin/python3` |
 | Codex CLI | 可选，仅安装标准插件时需要 |
 
 安装器还会核对原始 ASAR header SHA256，详细值见根目录 `compatibility.json`。相同版本但不同包也可能不支持。Intel Mac、Windows、Linux 和其他客户端版本目前不能使用界面集成。不要为了安装 mark 随意下载来源不明的旧客户端。
@@ -34,12 +34,12 @@ mark 有两部分：标准 Codex 插件负责收藏和检索；本机界面适�
 
 ## 手动安装
 
-从 [预览版发布页](https://github.com/yinjialu/mark/releases/tag/v0.1.0-preview.8) 下载 ZIP 和 SHA256，校验后解压，双击 `Install.command`，输入 `install`。
+从 [预览版发布页](https://github.com/yinjialu/mark/releases/tag/v0.1.0-preview.9) 下载 ZIP 和 SHA256，校验后解压，双击 `Install.command`，输入 `install`。
 
 也可以在终端执行（目标目录须不存在）：
 
 ```sh
-git clone --branch v0.1.0-preview.8 --depth 1 https://github.com/yinjialu/mark.git "$HOME/mark"
+git clone --branch v0.1.0-preview.9 --depth 1 https://github.com/yinjialu/mark.git "$HOME/mark"
 cd "$HOME/mark"
 python3 -B mark.py doctor
 python3 -B mark.py install --accept-local-resign
