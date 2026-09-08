@@ -13,6 +13,9 @@ spec.loader.exec_module(manager)
 
 class ManagerTests(unittest.TestCase):
     def setUp(self):
+        dock_sync = patch("dock.sync_dock")
+        dock_sync.start()
+        self.addCleanup(dock_sync.stop)
         self.temp = tempfile.TemporaryDirectory(prefix='mark-manager-test-')
         self.addCleanup(self.temp.cleanup)
         self.state = Path(self.temp.name)

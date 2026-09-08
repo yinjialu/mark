@@ -1,6 +1,6 @@
 # 使用 mark
 
-通过 `~/Applications/mark.app` 启动。运行中的副本在 Dock 中显示为 **ChatGPT mark**；正式版 ChatGPT 不包含 mark 入口。
+通过 `~/Applications/mark.app` 启动。运行中的副本在 Dock 中显示为 **ChatGPT mark**；正式版 ChatGPT 不包含 mark 入口。日常可仅将 ChatGPT mark 固定到 Dock；成功升级或回退后，已有的 mark 入口会自动更新，不必重新固定。正式版保留在“应用程序”中供升级使用。
 
 ## 保存文字
 

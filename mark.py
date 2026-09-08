@@ -265,6 +265,12 @@ def promote(state, record):
         data['previous'] = data['active']
     data.update(active=record, prepared=record, last_launch=stamp())
     atomic_json(state / 'state.json', data)
+    try:
+        from dock import sync_dock
+        sync_dock(state, Path(record['app']))
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        # Dock preferences must never turn a healthy launch into a rollback.
+        atomic_json(state / 'dock-warning.json', {'at': stamp(), 'message': str(error)[:1000]})
 
 
 def launch_record(record, state, switch=False):
