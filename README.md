@@ -46,16 +46,18 @@ Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会�
 
 ## 让你的 Codex 帮你安装
 
-把下面这句话发给 Codex，再复制安装文档中包含本地签名与重启授权的完整指令：
+把下面整段发给 Codex：
 
 ```text
-请帮我安装 mark：https://github.com/yinjialu/mark 的最新兼容版本。
-先阅读 main 分支的 docs/INSTALL.md，按“复制给 Codex 自动安装”执行；不要固定旧标签，也不要绕过兼容性检查。
+请帮我安装 https://github.com/yinjialu/mark 的最新兼容版本。
+先阅读 README.md、docs/INSTALL.md 和 install.sh，再下载并运行安装脚本；不要固定旧标签。
+我同意下载校验后的发布包，生成并本地签名独立的 ChatGPT mark 副本（仅副本启用 disable-library-validation），安装启动器并正常重启切换；保留正式应用、收藏和旧副本。
+使用 --yes --no-wait，检查结果文件为 complete 后再报告完成；失败时不绕过兼容性检查。
 ```
 
 [打开完整安装指令 →](docs/INSTALL.md#复制给-codex-自动安装)
 
-也可下载发布包后双击 **Install.command**。需要 Command Line Tools，标准插件安装另需 Codex CLI。**只安装标准插件不会出现原生界面入口。**
+也可[复制终端安装命令](docs/INSTALL.md#自己安装终端复制一次)：自动检查版本、一次确认、显示进度。固定版本安装可下载发布包后双击 **Install.command**。需要 Command Line Tools，标准插件安装另需 Codex CLI。**只安装标准插件不会出现原生界面入口。**
 
 ## 安装与升级如何工作
 

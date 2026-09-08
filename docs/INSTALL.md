@@ -4,20 +4,41 @@ mark 有两部分：标准 Codex 插件负责收藏和检索；本机界面适�
 
 ## 复制给 Codex 自动安装
 
-在自己的 Codex 中粘贴以下内容。它包含本地签名和重启授权；安装前请结束其他正在执行的任务。
+把下面整段发给 Codex 即可。安装完成会重启客户端，请先结束其他正在运行的任务。
 
 ```text
-请帮我安装 mark：https://github.com/yinjialu/mark 的最新兼容版本，不要固定旧标签。
-先阅读 main 分支的 README.md 和 docs/INSTALL.md，检查安装代码。将 main 克隆到我的用户目录下一个新目录，保留已有 checkout 和收藏。
-校验 SHA256SUMS.json 后，运行 python3 -B mark.py check-update --force；它会查询 GitHub 的完整发布列表（含公开预览版），筛选与本机正式客户端版本、build、架构和包哈希一致的最新版本。
-只有结果为 available 时继续；若为 up_to_date，说明已有最新兼容版本；离线、无兼容版本或任何检查失败都停止并说明原因，不绕过检查。
-我同意从该仓库下载所选正式发布包并校验，在本机从正式客户端生成独立副本、本地重签名，并仅在副本启用 disable-library-validation；同意安装 ~/Applications/mark.app，完成后正常退出当前客户端并切换到 ChatGPT mark。不要修改正式应用或系统全局安全设置。
-执行 python3 -B mark.py install-latest --yes --accept-local-resign --detached。记录返回的 result_file 和 log；scheduled 只表示已安排，要检查最后的 complete 或 error 状态。
-若 Codex CLI 可用且未安装同名插件，可按文档安装可选标准插件；不要删除已有 marketplace 或同名插件。
-告诉我如何固定运行中的 ChatGPT mark 到 Dock，以及左侧 mark 中“检查更新”的位置；修改 Dock 前先确认我的偏好。最后请我标记一段示例文字，验证保存和原文定位。
+请帮我安装 https://github.com/yinjialu/mark 的最新兼容版本。
+先阅读 README.md、docs/INSTALL.md 和 install.sh，再下载并运行安装脚本；不要固定旧标签。
+我同意下载并校验该仓库的发布包，在本机生成并本地签名 ChatGPT mark 独立副本，仅为副本启用 disable-library-validation，安装 mark 启动器并正常重启切换；保留正式应用、收藏和旧副本。
+使用 --yes --no-wait，跟踪返回的结果文件；只有 complete 才报告安装完成，失败请说明原因，不绕过兼容性检查。
 ```
 
-仓库代码会在本机执行，建议先审阅再运行。完整流程无需提供 GitHub 凭据、API key 或上传任务记录。
+安装脚本会自己选择新目录、检查工具和客户端、寻找最新兼容发布。用户无需准备 GitHub 凭据或 API key。标准插件是可选项，截图中的界面不依赖额外安装插件。
+
+## 自己安装：终端复制一次
+
+先查看 [install.sh 源码](../install.sh)，再把下面三行一起复制到终端：
+
+```sh
+MARK_INSTALL_SCRIPT="$(mktemp -t mark-install)"
+curl --fail --show-error --location --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/yinjialu/mark/main/install.sh --output "$MARK_INSTALL_SCRIPT" &&
+  bash "$MARK_INSTALL_SCRIPT"
+```
+
+脚本会显示可安装版本，输入 `install` 确认后开始下载、校验和安装，终端显示进度与最终结果。成功后打开 **ChatGPT mark**，左侧 **mark** 就是收藏库。
+
+下载脚本和获取 main 分支安装器都需要访问 GitHub；会执行本仓库代码。安装器保存到 `~/Library/Application Support/mark/bootstrap/` 的独立目录，不覆盖已有 checkout。`install.sh` 使用 GitHub HTTPS 获取 main，随后校验包内文件清单；真正的客户端适配包仍从 Releases 按精确兼容性选择并校验。SHA256 是完整性检查，不是开发者数字签名。
+
+常用选项（接在 `bash "$MARK_INSTALL_SCRIPT"` 后面）：
+
+| 选项 | 用途 |
+| --- | --- |
+| `--check` | 只检查环境和兼容发布，不安装或重启 |
+| `--yes` | 明确接受安装提示中的下载、本地签名、启动器安装与重启，省去输入确认 |
+| `--no-wait` | 安排后台安装后返回结果/日志路径，适合 Codex 执行；不表示安装成功 |
+| `--app '/Applications/Codex.app'` | 指定非默认正式客户端位置 |
+
+断网、缺少工具或没有兼容包时，脚本会停止并给出下一步提示。已是最新兼容版本时直接结束。
 
 ## 环境要求
 
@@ -32,7 +53,7 @@ mark 有两部分：标准 Codex 插件负责收藏和检索；本机界面适�
 
 如果尚未安装 Command Line Tools，运行 `xcode-select --install`，完成系统安装提示后再继续。安装器不会替你关闭 Gatekeeper 或移除隔离标记；这是没有 Developer ID 签名、公证的开发者预览包，系统阻止时应先确认下载来源。
 
-## 手动安装
+## 进阶：固定版本或已有 checkout
 
 从 [发布列表](https://github.com/yinjialu/mark/releases) 选择兼容版本，下载 ZIP 和 SHA256，校验后解压，双击 `Install.command`，输入 `install`。此方式安装你选定的版本，适合固定版本复现。
 
