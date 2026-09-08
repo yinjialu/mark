@@ -196,13 +196,17 @@ def build(app, state, accept=False):
     build_id = check['adapter']['id'] + '-' + package_id + '-' + uuid.uuid4().hex[:8]
     directory = state / 'builds' / build_id
     directory.mkdir(parents=True)
-    target = directory / 'Codex mark.app'
+    target = directory / 'ChatGPT mark.app'
     try:
         report = prepare(app, directory / 'prepared', ROOT / 'plugins/codex-marks')
         run(['/bin/cp', '-cR', app, target])
         for relative in ('Contents/Info.plist', 'Contents/Resources/app.asar'):
             shutil.copy2(directory / 'prepared' / relative, target / relative)
         shutil.copytree(directory / 'prepared/Contents/Resources/codex-marks', target / 'Contents/Resources/codex-marks', dirs_exist_ok=True)
+        info_path = target / 'Contents/Info.plist'
+        info = plistlib.loads(info_path.read_bytes())
+        info.update(CFBundleName='ChatGPT mark', CFBundleDisplayName='ChatGPT mark')
+        info_path.write_bytes(plistlib.dumps(info))
         sign_copy(app, target, check['adapter'], directory)
         record = {'app': str(target), 'version': check['version'], 'source_app': str(app), 'source_header_sha256': check['source_header_sha256'],
                   'patched_header_sha256': report['patched_header_sha256'], 'package_id': package_id, 'created_at': stamp(), 'adapter_id': check['adapter']['id']}

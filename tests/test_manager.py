@@ -28,7 +28,7 @@ class ManagerTests(unittest.TestCase):
         self.assertIsNone(manager.select_adapter(self.info, a['header_sha256'], 'x86_64', [a]))
 
     def test_unknown_upgrade_preserves_current_and_never_patches(self):
-        active = {'active': {'app': '/existing/Codex mark.app'}}
+        active = {'active': {'app': '/existing/ChatGPT mark.app'}}
         manager.atomic_json(self.state / 'state.json', active)
         with patch.object(manager, 'verify_package', return_value='hash'), patch.object(manager, 'doctor', return_value={'status': 'unsupported_client', 'version': 'future', 'message': 'unsupported'}), patch.object(manager, 'prepare') as prepare:
             with self.assertRaises(manager.MarkError):
