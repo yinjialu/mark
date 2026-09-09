@@ -4,9 +4,9 @@
 
 选中文字点 **mark**；图片、Mermaid 图表和表格也能保存。通过右侧导航回看当前任务，或在左侧 **mark** 页面搜索所有收藏。
 
-[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载预览版](https://github.com/yinjialu/mark/releases) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md) · [官方目录收录说明](docs/PUBLISHING.md)
+[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载 v0.1.0](https://github.com/yinjialu/mark/releases/tag/v0.1.0) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md) · [官方目录收录说明](docs/PUBLISHING.md)
 
-> 开发者预览版。目前界面集成仅支持 **macOS Apple Silicon，Codex 26.901.51231 / build 8109**，还会校验客户端包的完整性。不是 OpenAI 官方项目；其他版本会停止安装，等待适配。
+> **v0.1.0 · 首个正式发布版本。** 界面集成仅支持 **macOS Apple Silicon，Codex 26.901.51231 / build 8109**，还会校验客户端包的完整性。不是 OpenAI 官方项目；其他版本会停止安装，等待适配。
 
 ## 30 秒上手
 
@@ -20,19 +20,33 @@ Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会�
 
 收藏库位于 Codex 主内容区，复用原生页面布局、搜索、Tabs 标签切换、按钮和侧边栏组件。文字保留上下文与高亮，表格保留完整行列。
 
-### 表格收藏
+### v0.1.0 收藏页
 
-左侧选择收藏，右侧直接查看完整表格；支持定位原文、复制内容，以及编辑标题、标签和备注。
+打开后自动选择一条收藏。列表显示内容摘要、类型、来源和标签；右侧先展示收藏片段，点击“查看上下文”再展开完整快照。“定位原文”位于详情顶部；编辑标题、标签和备注时会显示未保存状态。
+
+![mark v0.1.0 浅色收藏页：片段预览、来源定位与编辑入口](docs/images/library-v1-light.png)
+
+<details>
+<summary>查看深色模式和表格预览</summary>
+
+![mark v0.1.0 深色收藏页](docs/images/library-v1-dark.png)
+
+![mark v0.1.0 完整表格预览](docs/images/table-v1-dark.png)
+
+</details>
+
+*以上为新版代码复用本机 Codex 原生组件、在独立浏览器中渲染的示例数据截图，展示页面设计；不是已更新的运行中客户端截图。*
+
+<details>
+<summary>查看此前版本的实际客户端截图：表格和 Mermaid 图表</summary>
 
 ![ChatGPT mark 实际客户端：内置收藏库与完整表格预览](docs/images/client-table.png)
 
-### Mermaid 图表收藏
-
-保存的 Mermaid 图表在收藏库中直接渲染，保留来源任务，方便回到原文继续阅读。
-
 ![ChatGPT mark 实际客户端：Mermaid 图表预览与来源定位入口](docs/images/client-mermaid.png)
 
-*以上为用户提供并授权展示的实际客户端截图，展示标记后的使用示例。截图拍摄于新增更新入口之前。*
+*用户提供并授权展示的实际客户端截图，拍摄于 v0.1.0 页面调整和更新入口加入之前。*
+
+</details>
 
 ## 能做什么
 
@@ -65,7 +79,7 @@ Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会�
 
 日常 Dock 入口直接打开当前副本。正式版升级后，通过 `~/Applications/mark.app` 启动会重新检查正式版。支持的版本自动生成或复用副本；未知版本停止，等待新的 mark 包。mark 收藏页每天最多自动检查一次发布信息，也可点击“检查更新”。检查会包含公开预览版，按版本号选择匹配本机客户端的发布包；只有点击“安装并重启”才下载和安装。切换成功后保留上一已运行版本，失败时恢复旧启动器和版本状态。断网不影响现有副本。
 
-测试副本复用原有 Codex 用户环境，不是隔离账号。源码兼容性检查、签名检查和进程存活检查不能替代实际点击验收。本包尚未完成第二台 Mac 首装与 Gatekeeper 提示验收，也没有 Developer ID 签名或 Apple 公证。
+独立副本复用原有 Codex 用户环境，不是隔离账号。源码兼容性检查、签名检查和进程存活检查不能替代实际点击验收。本包尚未完成第二台 Mac 首装与 Gatekeeper 提示验收，也没有 Developer ID 签名或 Apple 公证。
 
 ## 数据和项目结构
 

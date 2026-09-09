@@ -6,6 +6,16 @@ const sha=async text=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-
 const changed=()=>window.dispatchEvent(new Event('codex-marks-changed'));
 const kind=m=>({image:'图片',mermaid:'图表',table:'表格'}[m.anchor?.block_kind]||'文字');
 const heading=m=>m.title||m.quote||kind(m);
+export function summaryOf(m){
+  if(m.anchor?.block_kind==='mermaid')return 'Mermaid 图表 · 查看完整图表';
+  if(m.anchor?.block_kind==='image')return '图片快照 · 查看完整图片';
+  if(m.anchor?.block_kind==='table'){
+    const header=(m.quote||'').split('\n').find(line=>line.includes('|'));
+    const columns=header?.split('|').map(v=>v.trim()).filter(Boolean);
+    return columns?.length?'表格 · '+columns.join(' / '):'表格快照 · 查看完整行列';
+  }
+  return m.quote===heading(m)?'':m.quote;
+}
 const textOf=node=>{const r=document.createRange();r.selectNodeContents(node);return r.toString();};
 function navigationItem(mark,items){
   const turn=mark.anchor?.turn_id;
@@ -49,43 +59,45 @@ export function createMarksUI(React,jsx,ui){
   const button=(text,onClick,props={})=>h(Button,{color:'ghost',size:'sm',onClick,...props},text);
   const call=async payload=>{const r=await window.codexMarks.library(payload);if(!r?.ok)throw Error(r?.error||'操作失败，请重试');return r;};
   function Detail({id,onChange,onJump}){
-    const [data,setData]=React.useState(null),[error,setError]=React.useState(''),[busy,setBusy]=React.useState(false),[title,setTitle]=React.useState(''),[tags,setTags]=React.useState(''),[note,setNote]=React.useState(''),[notice,setNotice]=React.useState('');
+    const [data,setData]=React.useState(null),[error,setError]=React.useState(''),[busy,setBusy]=React.useState(false),[title,setTitle]=React.useState(''),[tags,setTags]=React.useState(''),[note,setNote]=React.useState(''),[notice,setNotice]=React.useState(''),[showContext,setShowContext]=React.useState(false);
     const previewRef=React.useRef(null),version=React.useRef(0);
     React.useEffect(()=>{let alive=true;version.current++;setData(null);setError('');setNotice('');call({op:'get',id}).then(r=>{if(!alive)return;setData(r);setTitle(r.mark.title||'');setTags((r.mark.tags||[]).join(', '));setNote(r.mark.note||'');}).catch(e=>alive&&setError(e.message));return()=>{alive=false;};},[id]);
-    React.useEffect(()=>{const mark=previewRef.current?.querySelector('mark');if(mark)previewRef.current.scrollTop=Math.max(0,mark.offsetTop-previewRef.current.offsetTop-100);},[data]);
+    React.useEffect(()=>{const mark=previewRef.current?.querySelector('mark');if(mark)previewRef.current.scrollTop=Math.max(0,mark.offsetTop-previewRef.current.offsetTop-100);},[data,showContext]);
     async function mutate(op){
       const revision=version.current;
       setBusy(true);setError('');
-      try{await call(op==='update'?{op,id,title,note,tags:tags.split(/[,，]/).map(t=>t.trim()).filter(Boolean)}:{op,id});changed();onChange();if(revision===version.current){setNotice(op==='update'?'已保存':op==='delete'?'已移到回收站':'已恢复');if(op!=='update')setData(null);}}
+      try{await call(op==='update'?{op,id,title,note,tags:tags.split(/[,，]/).map(t=>t.trim()).filter(Boolean)}:{op,id});changed();onChange();if(revision===version.current){setNotice(op==='update'?'已保存':op==='delete'?'已移到回收站':'已恢复');if(op!=='update')setData(null);else{const normalized=[...new Set(tags.split(/[,，]/).map(t=>t.trim()).filter(Boolean))];setTags(normalized.join(', '));setData(value=>({...value,mark:{...value.mark,title,note,tags:normalized}}));}}}
       catch(e){if(revision===version.current)setError(e.message);}finally{if(revision===version.current)setBusy(false);}
     }
     if(!data)return h('div',{className:'mark-detail-empty',role:'status'},error||notice||'正在读取收藏…');
-    const {mark,context}=data,c=context||{},text=c.text||mark.quote,chars=Array.from(text),exact=c.status==='snapshot_verified';
+    const {mark,context}=data,c=context||{},dirty=title!==(mark.title||'')||note!==(mark.note||'')||tags!==(mark.tags||[]).join(', '),text=c.text||mark.quote,chars=Array.from(text),exact=c.status==='snapshot_verified';
     const dark=getComputedStyle(document.documentElement).colorScheme.includes('dark');
     const snapshot=(c.html||'')+`<style>body{background:${dark?'#202020':'#fff'};color:${dark?'#ececec':'#222'};font:14px/1.6 system-ui;margin:16px}th{background:${dark?'#303030':'#f3f3f3'}}td,th{border-color:${dark?'#484848':'#ccc'}}</style>`;
-    const preview=c.status==='block_verified'?h('iframe',{title:kind(mark)+'收藏快照',sandbox:'',referrerPolicy:'no-referrer',srcDoc:snapshot,style:{width:'100%',height:'100%',border:0}}):h('div',{ref:previewRef,className:'mark-text-preview'},exact?[chars.slice(0,c.start_offset).join(''),h('mark',{key:'saved'},chars.slice(c.start_offset,c.end_offset).join('')),chars.slice(c.end_offset).join('')]:text);
+    const preview=c.status==='block_verified'?h('iframe',{title:kind(mark)+'收藏快照',sandbox:'',referrerPolicy:'no-referrer',srcDoc:snapshot,style:{width:'100%',height:'100%',border:0}}):h('div',{ref:previewRef,className:'mark-text-preview'},exact?(showContext?[chars.slice(0,c.start_offset).join(''),h('mark',{key:'saved'},chars.slice(c.start_offset,c.end_offset).join('')),chars.slice(c.end_offset).join('')]:h('mark',{},mark.quote)):mark.quote);
     return h('div',{className:'mark-detail'},
-      h('div',{className:'mark-detail-heading'},h('div',{className:'text-tertiary text-xs'},kind(mark)+' · '+(mark.thread_title||'来源任务')),h('div',{className:'font-medium'},mark.anchor?.turn_title||heading(mark))),
-      h('div',{className:'mark-preview'},preview),
-      h('div',{className:'mark-detail-actions'},button('定位原文',()=>onJump(mark),{disabled:!mark.thread_id||busy}),button('复制原文',()=>navigator.clipboard.writeText(mark.quote).then(()=>setNotice('已复制')).catch(()=>setError('复制失败，请重试')))),
-      h('details',{className:'mark-edit'},h('summary',{},'标题、标签与备注'),
-        h('label',{},'标题',h(Input,{'aria-label':'标题',value:title,maxLength:200,autoFocus:false,onChange:e=>setTitle(e.target.value),className:'mark-input'})),
-        h('label',{},'标签',h(Input,{'aria-label':'标签',value:tags,autoFocus:false,onChange:e=>setTags(e.target.value),placeholder:'用逗号分隔',className:'mark-input'})),
-        h('label',{},'备注',h('textarea',{'aria-label':'备注',value:note,maxLength:10000,onChange:e=>setNote(e.target.value),className:'mark-input',rows:3})),
-        button('保存修改',()=>mutate('update'),{disabled:busy||!!mark.deleted_at})),
-      h('div',{className:'mark-detail-actions'},button(mark.deleted_at?'恢复收藏':'移到回收站',()=>mutate(mark.deleted_at?'restore':'delete'),{disabled:busy}),h('span',{className:'text-tertiary text-xs',role:'status'},error||notice||new Date(mark.created_at).toLocaleDateString())));
+      h('div',{className:'mark-detail-heading'},h('div',{className:'mark-detail-meta'},h('span',{className:'mark-kind'},kind(mark)),h('span',{className:'text-tertiary text-xs'},mark.thread_title||'来源未记录')),h('h2',{className:'mark-detail-title'},heading(mark))),
+      h('div',{className:'mark-detail-actions'},button('定位原文',()=>onJump(mark),{color:'primary',className:'mark-action-primary',disabled:!mark.thread_id||busy}),button('复制原文',()=>navigator.clipboard.writeText(mark.quote).then(()=>setNotice('已复制')).catch(()=>setError('复制失败，请重试'))),exact?button(showContext?'只看收藏片段':'查看上下文',()=>setShowContext(v=>!v),{'aria-pressed':showContext}):null),
+      h('div',{className:'mark-preview '+(c.status==='block_verified'?'mark-block-preview':'')},preview),
+      mark.note?h('div',{className:'mark-saved-note'},h('span',{className:'text-tertiary text-xs'},'备注'),h('p',{},mark.note)):null,
+      h('details',{className:'mark-edit'},h('summary',{},'编辑收藏',dirty?h('span',{className:'mark-unsaved'},'未保存'):null),
+        h('label',{},'标题',h(Input,{'aria-label':'标题',disabled:busy,value:title,maxLength:200,autoFocus:false,onChange:e=>setTitle(e.target.value),className:'mark-input'})),
+        h('label',{},'标签',h(Input,{'aria-label':'标签',disabled:busy,value:tags,autoFocus:false,onChange:e=>setTags(e.target.value),placeholder:'用逗号分隔',className:'mark-input'})),
+        h('label',{},'备注',h('textarea',{'aria-label':'备注',disabled:busy,value:note,maxLength:10000,onChange:e=>setNote(e.target.value),className:'mark-input',rows:3})),
+        button('保存修改',()=>mutate('update'),{color:'primary',className:'mark-action-primary',disabled:busy||!!mark.deleted_at||!dirty})),
+      h('div',{className:'mark-detail-actions mark-detail-footer'},button(mark.deleted_at?'恢复收藏':'移到回收站',()=>mutate(mark.deleted_at?'restore':'delete'),{disabled:busy}),h('span',{className:'text-tertiary text-xs',role:'status'},error||notice||new Date(mark.created_at).toLocaleDateString())));
   }
   function Library({threadId,onJump,selected,onSelect,revision,query}){
     const [scope,setScope]=React.useState('all'),[rows,setRows]=React.useState([]),[total,setTotal]=React.useState(0),[offset,setOffset]=React.useState(0),[busy,setBusy]=React.useState(true),[error,setError]=React.useState(''),[localRev,setLocalRev]=React.useState(0);
     React.useEffect(()=>{let alive=true;setBusy(true);setError('');setRows([]);const timer=setTimeout(()=>{call({op:'search',query,thread_id:scope==='task'?threadId:'',deleted:scope==='trash',offset,limit:50}).then(r=>{if(!alive)return;setRows(r.marks);setTotal(r.total);}).catch(e=>alive&&setError(e.message)).finally(()=>alive&&setBusy(false));},180);return()=>{alive=false;clearTimeout(timer);};},[query,scope,threadId,offset,revision,localRev]);
     React.useEffect(()=>{setOffset(0);},[query]);
     const panelPrefix=React.useId();
+    React.useEffect(()=>{if(!busy&&!error){if(!rows.length)onSelect(null);else if(!rows.some(m=>m.id===selected))onSelect(rows[0].id);}},[rows,busy,error,selected,onSelect]);
     React.useEffect(()=>{if(!threadId&&scope==='task'){setScope('all');setOffset(0);onSelect(null);}},[threadId,scope,onSelect]);
     return h('div',{className:'mark-library-grid'},h('section',{className:'mark-library-list'},
       h(Tabs,{ariaLabel:'收藏范围',variant:'page',scrollable:true,selectedKey:scope,tabs:['all',...(threadId?['task']:[]), 'trash'].map(s=>({key:s,name:{all:'全部',task:'当前任务',trash:'回收站'}[s],panelId:panelPrefix+'-'+s})),onSelect:s=>{setScope(s);setOffset(0);onSelect(null);}}),
       h('div',{className:'text-tertiary text-xs',role:'status'},busy?'正在读取…':error||`${total} 条收藏`),
-      h('div',{className:'mark-library-rows',role:'tabpanel',id:panelPrefix+'-'+scope,'aria-labelledby':panelPrefix+'-'+scope+'-tab',tabIndex:0},...rows.map(m=>h('button',{key:m.id,type:'button',className:'mark-library-row','aria-pressed':selected===m.id,onClick:()=>onSelect(m.id)},h('div',{className:'mark-row-title'},heading(m)),h('div',{className:'mark-row-excerpt'},m.quote),h('div',{className:'text-tertiary text-xs'},kind(m)+' · '+(m.thread_title||new Date(m.created_at).toLocaleDateString())))),!busy&&!error&&!rows.length?h('p',{className:'text-tertiary'},query?'没有找到匹配的收藏':'还没有收藏。在原文上点击 mark 即可保存。'):null),
-      h('div',{className:'mark-detail-actions'},button('上一页',()=>setOffset(Math.max(0,offset-50)),{disabled:busy||offset===0}),button('下一页',()=>setOffset(offset+50),{disabled:busy||offset+50>=total}))),
+      h('div',{className:'mark-library-rows',role:'tabpanel',id:panelPrefix+'-'+scope,'aria-labelledby':panelPrefix+'-'+scope+'-tab',tabIndex:0},...rows.map(m=>h('button',{key:m.id,type:'button',className:'mark-library-row','aria-pressed':selected===m.id,onClick:()=>onSelect(m.id)},h('div',{className:'mark-row-title'},heading(m)),summaryOf(m)?h('div',{className:'mark-row-excerpt'},summaryOf(m)):null,h('div',{className:'mark-row-meta'},h('span',{className:'mark-kind'},kind(m)),h('span',{className:'text-tertiary text-xs'},m.thread_title||new Date(m.created_at).toLocaleDateString())),m.tags?.length?h('div',{className:'mark-row-tags'},...m.tags.slice(0,3).map(tag=>h('span',{key:tag},tag))):null)),!busy&&!error&&!rows.length?h('p',{className:'text-tertiary'},query?'没有找到匹配的收藏':'还没有收藏。在原文上点击 mark 即可保存。'):null),
+      total>50?h('div',{className:'mark-detail-actions'},button('上一页',()=>setOffset(Math.max(0,offset-50)),{disabled:busy||offset===0}),button('下一页',()=>setOffset(offset+50),{disabled:busy||offset+50>=total})):null),
       selected?h(Detail,{key:selected,id:selected,onChange:()=>{setLocalRev(v=>v+1);},onJump}):h('div',{className:'mark-detail-empty'},'选择一条收藏，查看内容和来源'));
   }
   function Updates(){
@@ -130,7 +142,7 @@ export function createMarksUI(React,jsx,ui){
     React.useEffect(()=>{const update=()=>setRevision(v=>v+1);window.addEventListener('codex-marks-changed',update);window.addEventListener('focus',update);return()=>{window.removeEventListener('codex-marks-changed',update);window.removeEventListener('focus',update);};},[]);
     function jump(mark){if(!uuid.test(mark.thread_id||''))return;pendingJump=mark;navigate('/local/'+mark.thread_id);}
     return h('main',{className:'mark-page','data-codex-mark-page':'','aria-label':'mark 收藏库'},h('style',{},styles),
-      h(PageLayout,{title:'mark',subtitle:'收藏与原文',headerVariant:'inset',contentWidth:'extraWide',contentClassName:'mark-page-content',animateContentLayout:false,
+      h(PageLayout,{title:'mark',subtitle:'让值得留下的内容，随时可回看',headerVariant:'inset',contentWidth:'extraWide',contentClassName:'mark-page-content',animateContentLayout:false,
         search:{id:'mark-page-search',label:'搜索收藏',placeholder:'搜索原文、任务、标签或备注',searchQuery:query,onSearchQueryChange:value=>setQuery(value.slice(0,500)),autoFocus:false}},
         h(Updates,{}),
         initialNotice?h('p',{role:'status',className:'text-secondary text-sm'},initialNotice):null,
@@ -250,5 +262,25 @@ const styles=`
 .mark-detail{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto}.mark-detail-heading{overflow-wrap:anywhere}.mark-preview{min-height:180px;flex:1;overflow:hidden;border:1px solid var(--color-border);border-radius:10px;background:var(--color-surface)}
 .mark-text-preview{height:100%;overflow:auto;padding:18px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;box-sizing:border-box}.mark-text-preview mark{background:#d3962030;color:inherit;text-decoration:underline;text-decoration-color:#d39620;text-underline-offset:3px;border-radius:2px}
 .mark-detail-empty{display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:14px;padding:24px}.mark-edit{flex:none;font-size:13px}.mark-edit summary{cursor:pointer}.mark-edit label{display:block;margin:10px 0}.mark-edit input,.mark-edit textarea{margin-top:4px}
+.mark-page .mark-library-grid{grid-template-columns:minmax(230px,30%) minmax(0,1fr);gap:32px;align-items:start}
+.mark-page .mark-library-list{gap:14px}
+.mark-page .mark-detail{height:auto;max-height:calc(100dvh - 120px);min-height:0;top:24px;padding:2px 0 16px;gap:16px}
+.mark-page .mark-preview{flex:none;min-height:0;max-height:50vh;border-radius:12px}
+.mark-text-preview{height:auto;max-height:50vh;padding:20px 24px;font-size:14px;font-weight:400;line-height:1.8}
+.mark-page .mark-block-preview{height:360px;min-height:240px}
+.mark-page h1{font-size:28px;font-weight:600;line-height:1.25}.mark-detail-actions button,.mark-edit>button{min-height:32px;padding:6px 12px;border-radius:8px;font-size:12px}.mark-detail button.mark-action-primary{background:var(--color-text);color:var(--color-surface);border:1px solid var(--color-text)}.mark-detail button.mark-action-primary:disabled{opacity:.4}.mark-detail-title{font-size:18px;font-weight:600;line-height:1.5;margin:8px 0 0;overflow-wrap:anywhere}
+.mark-detail-meta,.mark-row-meta{display:flex;align-items:center;gap:8px;min-width:0}
+.mark-row-meta{margin-top:10px}.mark-row-meta>span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mark-kind{font-size:11px;line-height:1.6;flex-shrink:0;padding:1px 6px;border-radius:5px;background:color-mix(in srgb,var(--color-text) 6%,transparent);color:var(--color-text-secondary)}
+.mark-library-row{padding:14px;margin:0 0 6px;border:1px solid transparent;border-radius:12px}
+.mark-library-row[aria-pressed=true]{border-color:color-mix(in srgb,var(--color-text) 9%,transparent);background:color-mix(in srgb,var(--color-text) 6%,transparent)}
+.mark-row-title{font-size:14px;line-height:1.5}.mark-row-excerpt{margin:6px 0 0;font-size:12px}
+.mark-row-tags{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}.mark-row-tags span{font-size:11px;color:var(--color-text-secondary);border:1px solid var(--color-border);border-radius:4px;padding:0 5px;max-width:100%;overflow-wrap:anywhere}
+.mark-edit{padding:14px 0;border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border)}
+.mark-edit summary{color:var(--color-text-secondary);font-weight:500}.mark-edit label{margin:12px 0}.mark-edit textarea{resize:vertical;min-height:88px}
+.mark-unsaved{margin-left:8px;color:#a97818;font-size:11px}.mark-saved-note{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}.mark-saved-note p{margin:6px 0 0}
+.mark-detail-footer{justify-content:space-between}.mark-updates{font-size:12px;min-height:28px;margin-bottom:16px}
+@media(max-width:900px){.mark-page .mark-library-grid{gap:18px;grid-template-columns:minmax(185px,34%) minmax(0,1fr)}.mark-text-preview{padding:16px}.mark-detail-title{font-size:16px}}
+@media(max-width:560px){.mark-page .mark-library-grid{grid-template-columns:minmax(0,1fr)}.mark-page .mark-detail{position:static;max-height:none}.mark-library-rows{max-height:220px}.mark-page .mark-block-preview{height:280px}}
 @media(max-width:700px){.mark-library-grid{grid-template-columns:minmax(160px,35%) minmax(0,1fr);gap:10px}.mark-rail{right:4px}}
 `;

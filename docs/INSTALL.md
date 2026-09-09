@@ -51,7 +51,7 @@ curl --fail --show-error --location --proto '=https' --tlsv1.2 https://raw.githu
 
 安装器还会核对原始 ASAR header SHA256，详细值见根目录 `compatibility.json`。相同版本但不同包也可能不支持。Intel Mac、Windows、Linux 和其他客户端版本目前不能使用界面集成。不要为了安装 mark 随意下载来源不明的旧客户端。
 
-如果尚未安装 Command Line Tools，运行 `xcode-select --install`，完成系统安装提示后再继续。安装器不会替你关闭 Gatekeeper 或移除隔离标记；这是没有 Developer ID 签名、公证的开发者预览包，系统阻止时应先确认下载来源。
+如果尚未安装 Command Line Tools，运行 `xcode-select --install`，完成系统安装提示后再继续。安装器不会替你关闭 Gatekeeper 或移除隔离标记；这是没有 Developer ID 签名、公证的社区发布包，系统阻止时应先确认下载来源。
 
 ## 进阶：固定版本或已有 checkout
 
@@ -107,7 +107,7 @@ python3 -B mark.py update-status
 
 **preview.11 及更早版本没有更新入口**，需要按上面的新安装流程更新一次。已复制的旧版固定标签指令不会自动改变。更新机制从 preview.12 起提供，更新的是客户端适配器和启动器；可选标准插件仍通过 Codex 插件管理更新。
 
-测试副本与正式版使用原有 Codex 用户环境，**不是隔离账号或沙盒**；不要同时运行多个副本。
+独立副本与正式版使用原有 Codex 用户环境，**不是隔离账号或沙盒**；不要同时运行多个副本。
 
 ## 验收和排错
 
