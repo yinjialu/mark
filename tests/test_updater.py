@@ -70,6 +70,25 @@ class UpdateTests(unittest.TestCase):
         with patch.object(updater,'identity',return_value=SOURCE),patch.object(updater,'fetch',return_value=b'[]') as fetch:
             self.assertEqual(updater.check(mark,self.app,self.state)['status'],'up_to_date');fetch.assert_not_called()
             self.assertEqual(updater.check(mark,self.app,self.state,True)['status'],'no_compatible_release');fetch.assert_called_once()
+    def test_same_mark_release_rebuilds_for_new_official_client(self):
+        old={**SOURCE,'version':'old-client','header_sha256':'b'*64}
+        mark.atomic_json(self.state/'state.json',{'active':{'version':old['version'],'source_header_sha256':old['header_sha256']}})
+        candidate={'tag':self.release['tag_name'],'version':self.manifest['release'],'manifest':self.manifest,
+                   'zip':self.release['assets'][0],'checksum':self.release['assets'][1],
+                   'release_url':'https://github.com/yinjialu/mark/releases/tag/'+self.release['tag_name']}
+        with patch.object(updater,'identity',return_value=SOURCE),patch.object(updater,'current_version',return_value=self.manifest['release']), \
+             patch.object(updater,'fetch',return_value=b'[]'),patch.object(updater,'select_release',return_value=candidate):
+            result=updater.check(mark,self.app,self.state,True)
+        self.assertEqual(result['status'],'available')
+        self.assertTrue(result['rebuild_for_client'])
+        self.assertFalse(result['source_current'])
+    def test_new_official_client_waits_without_breaking_active_copy(self):
+        mark.atomic_json(self.state/'state.json',{'active':{'version':'old-client','source_header_sha256':'b'*64}})
+        with patch.object(updater,'identity',return_value=SOURCE),patch.object(updater,'current_version',return_value=self.manifest['release']), \
+             patch.object(updater,'fetch',return_value=b'[]'),patch.object(updater,'select_release',return_value=None):
+            result=updater.check(mark,self.app,self.state,True)
+        self.assertEqual(result['status'],'waiting_for_adapter')
+        self.assertIn('可继续使用',result['message'])
     def test_offline_is_nonfatal_and_does_not_modify_active(self):
         active={'active':{'app':'old'}};mark.atomic_json(self.state/'state.json',active)
         with patch.object(updater,'identity',return_value=SOURCE),patch.object(updater,'fetch',side_effect=OSError('offline')):
@@ -105,6 +124,14 @@ class UpdateTests(unittest.TestCase):
             self.assertEqual(updater.apply(mark,self.app,self.state,'ticket')['status'],'complete')
             argv=run.call_args.args[0];self.assertIn('upgrade',argv);self.assertIn('--switch',argv)
             self.assertTrue(Path(argv[2]).exists());run.assert_called_once()
+    def test_same_release_applies_when_active_copy_uses_an_older_client(self):
+        offer=self.offer();data=package(self.manifest)
+        mark.atomic_json(self.state/'state.json',{'active':{'version':'old-client','source_header_sha256':'b'*64}})
+        def fetch(url,limit):return ((hashlib.sha256(data).hexdigest()+'  '+offer['zip']['name']).encode() if url.endswith('.sha256') else data)
+        with patch.object(updater,'identity',return_value=SOURCE),patch.object(updater,'current_version',return_value=offer['version']), \
+             patch.object(updater,'fetch',side_effect=fetch),patch.object(updater.subprocess,'run') as run:
+            self.assertEqual(updater.apply(mark,self.app,self.state,'ticket')['status'],'complete')
+            run.assert_called_once()
     def test_expired_offer_and_changed_client_stop_before_download(self):
         offer=self.offer();offer['expires']=0;mark.atomic_json(self.state/'update-offer.json',offer)
         with self.assertRaises(updater.UpdateError):updater.offer_for(mark,self.state,'ticket')

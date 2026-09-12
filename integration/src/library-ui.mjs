@@ -128,12 +128,15 @@ export function createMarksUI(React,jsx,ui){
       try{const r=await request({op:'install',ticket:info.ticket});if(alive.current)setInfo(r);}catch(e){if(alive.current)setError(e.message);}finally{working.current=false;if(alive.current)setBusy(false);}
     }
     if(!window.codexMarks?.updates)return null;
-    const progress={scheduled:'已安排更新，完成后将重启',downloading:'正在下载并校验更新…',installing:'正在安装，完成后将重启…',complete:'更新已完成',error:'更新未完成，旧版本已保留'};
+    const progress={scheduled:'已安排更新，完成后将重启',downloading:'正在下载并校验更新…',installing:'正在生成新版副本，完成后将重启…',complete:'更新已完成',error:'更新未完成，旧版本已保留'};
+    const official=info?.source?.version?`正式版 ${info.source.version}${info.source.build?' · build '+info.source.build:''}`:'';
+    const copy=info?.active_client_version?`当前副本 ${info.active_client_version}${info.active_client_build?' · build '+info.active_client_build:''}`:'';
     return h('div',{className:'mark-updates','data-codex-mark-updates':''},
       h('span',{className:'text-tertiary text-xs',role:'status'},error||progress[info?.status]||(busy?'正在检查更新…':info?.status==='available'?'发现 mark '+info.version:info?.message||'mark 更新')),
-      info?.current_version?h('span',{className:'text-tertiary text-xs'},'当前 '+info.current_version):null,
-      info?.status==='available'&&!later?h(jsx.Fragment,{},button('安装并重启',install,{disabled:busy}),button('暂不更新',()=>setLater(true),{disabled:busy})):null,
-      !active(info?.status)?button('检查更新',()=>void check(true),{disabled:busy}):null);
+      official?h('span',{className:'text-tertiary text-xs'},official):null,
+      copy?h('span',{className:'text-tertiary text-xs'},copy):info?.current_version?h('span',{className:'text-tertiary text-xs'},'mark '+info.current_version):null,
+      info?.status==='available'&&!later?h(jsx.Fragment,{},button(info.rebuild_for_client?'适配新版并重启':'安装并重启',install,{disabled:busy}),button('暂不更新',()=>setLater(true),{disabled:busy})):null,
+      !active(info?.status)?button(info?.status==='waiting_for_adapter'?'重新检查适配':'检查更新',()=>void check(true),{disabled:busy}):null);
   }
   function Page({navigate,sourceThreadId='',selectedId=null,initialNotice=''}){
     const [selected,setSelected]=React.useState(selectedId),[query,setQuery]=React.useState(''),[revision,setRevision]=React.useState(0);

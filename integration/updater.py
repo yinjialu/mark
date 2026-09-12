@@ -121,14 +121,30 @@ def current_version(manager, state):
     return manager.read_json(state / 'packages' / pid / 'compatibility.json', {}).get('release')
 
 
+def active_source(manager, state):
+    return manager.read_json(state / 'state.json', {}).get('active', {})
+
+
+def active_matches_source(manager, state, source):
+    active = active_source(manager, state)
+    return bool(active and active.get('version') == source.get('version')
+                and active.get('source_header_sha256') == source.get('header_sha256'))
+
+
 def check(manager, app, state, force=False):
     source = identity(manager, app)
     current = current_version(manager, state)
+    active = active_source(manager, state)
+    source_current = active_matches_source(manager, state, source)
     cache = manager.read_json(state / 'update-check.json', {})
     lifetime = 900 if cache.get('status') == 'offline' else 86400
-    if not force and cache.get('source') == source and cache.get('current_version') == current and time.time() - cache.get('checked_at', 0) < lifetime:
+    if (not force and cache.get('source') == source and cache.get('current_version') == current
+            and cache.get('active_source_header_sha256') == active.get('source_header_sha256')
+            and time.time() - cache.get('checked_at', 0) < lifetime):
         return cache
-    result = {'current_version': current, 'source': source, 'checked_at': time.time()}
+    result = {'current_version': current, 'source': source, 'source_current': source_current,
+              'active_client_version': active.get('version'), 'active_client_build': active.get('source_build'),
+              'active_source_header_sha256': active.get('source_header_sha256'), 'checked_at': time.time()}
     try:
         releases = []
         for page in range(1, 4):
@@ -140,13 +156,23 @@ def check(manager, app, state, force=False):
                 break
         candidate = select_release(releases, source)
         if not candidate:
-            result.update(status='no_compatible_release', message='暂未发现支持当前客户端的更新版本，现有副本可继续使用')
-        elif current and version(candidate['version']) <= version(current):
+            if current and not source_current:
+                result.update(status='waiting_for_adapter', message='正式版已升级，适配尚未发布；当前 ChatGPT mark 可继续使用')
+            else:
+                result.update(status='no_compatible_release', message='暂未发现支持当前客户端的更新版本，现有副本可继续使用')
+        elif current and version(candidate['version']) < version(current):
+            result.update(status='waiting_for_adapter' if not source_current else 'up_to_date',
+                          message='正式版已升级，适配尚未发布；当前 ChatGPT mark 可继续使用' if not source_current else '已是最新兼容版本')
+        elif current and version(candidate['version']) == version(current) and source_current:
             result.update(status='up_to_date', message='已是最新兼容版本')
         else:
-            offer = {**candidate, 'source': source, 'ticket': str(uuid.uuid4()), 'expires': time.time() + 86400}
+            rebuild = bool(current and version(candidate['version']) == version(current) and not source_current)
+            offer = {**candidate, 'source': source, 'rebuild_for_client': rebuild,
+                     'ticket': str(uuid.uuid4()), 'expires': time.time() + 86400}
             manager.atomic_json(state / 'update-offer.json', offer)
-            result.update(status='available', version=candidate['version'], ticket=offer['ticket'], release_url=candidate['release_url'], message='发现兼容更新')
+            result.update(status='available', version=candidate['version'], ticket=offer['ticket'],
+                          release_url=candidate['release_url'], rebuild_for_client=rebuild,
+                          message='当前正式客户端已有适配，可生成新版副本' if rebuild else '发现兼容更新')
     except (OSError, ValueError, KeyError, TypeError):
         result.update(status='offline', message='暂时无法检查更新，现有版本可继续使用；请稍后重试')
     manager.atomic_json(state / 'update-check.json', result)
@@ -212,7 +238,9 @@ def apply(manager, app, state, ticket, accept=False):
     if identity(manager, app) != offer['source']:
         raise UpdateError('正式客户端已变化，请重新检查更新')
     current = current_version(manager, state)
-    if current and version(offer['version']) <= version(current):
+    if current and version(offer['version']) < version(current):
+        raise UpdateError('不会自动降级 mark；请等待当前版本适配新版客户端')
+    if current and version(offer['version']) == version(current) and active_matches_source(manager, state, offer['source']):
         manager.atomic_json(state / 'update-job.json', {**manager.read_json(state / 'update-job.json', {}), 'status': 'complete', 'version': current})
         return {'status': 'up_to_date', 'message': '已是最新兼容版本'}
     job = manager.read_json(state / 'update-job.json', {})

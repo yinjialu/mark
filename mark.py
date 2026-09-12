@@ -80,15 +80,15 @@ def verify_package(root=ROOT):
 def source_app(explicit=None):
     if explicit:
         return Path(explicit).expanduser().resolve()
-    for app in (Path('/Applications/Codex.app'), Path('/Applications/ChatGPT.app'),
-                Path.home() / 'Applications/Codex.app', Path.home() / 'Applications/ChatGPT.app'):
+    for app in (Path('/Applications/ChatGPT.app'), Path.home() / 'Applications/ChatGPT.app',
+                Path('/Applications/Codex.app'), Path.home() / 'Applications/Codex.app'):
         if app.exists():
             try:
                 if plistlib.loads((app / 'Contents/Info.plist').read_bytes()).get('CFBundleIdentifier') == 'com.openai.codex':
                     return app.resolve()
             except (OSError, ValueError):
                 pass
-    raise MarkError('未找到正式 Codex。请先安装，或通过 --app 指定应用路径。')
+    raise MarkError('未找到正式 ChatGPT/Codex。请先安装，或通过 --app 指定应用路径。')
 
 
 def select_adapter(info, header, architecture, adapters):
@@ -211,7 +211,9 @@ def build(app, state, accept=False):
             'package': str(state / 'packages' / package_id), 'package_id': package_id,
             'state': str(state), 'source_app': str(app)})
         sign_copy(app, target, check['adapter'], directory)
-        record = {'app': str(target), 'version': check['version'], 'source_app': str(app), 'source_header_sha256': check['source_header_sha256'],
+        record = {'app': str(target), 'version': check['version'], 'source_build': check['build'],
+                  'architecture': check['architecture'], 'bundle_id': check['adapter']['bundle_id'],
+                  'source_app': str(app), 'source_header_sha256': check['source_header_sha256'],
                   'patched_header_sha256': report['patched_header_sha256'], 'package_id': package_id, 'mark_version': read_json(ROOT / 'compatibility.json')['release'], 'created_at': stamp(), 'adapter_id': check['adapter']['id']}
         verified(record)
         if doctor(app)['source_header_sha256'] != check['source_header_sha256']:
@@ -314,6 +316,37 @@ def launch_record(record, state, switch=False):
         raise
 
 
+def start_managed(app, state, accept=False):
+    """Open the newest usable copy without letting an unsupported official update block launch."""
+    active = read_json(state / 'state.json', {}).get('active')
+    source_status = None
+    try:
+        source_status = doctor(app)
+        atomic_json(state / 'compatibility-status.json', source_status)
+        if source_status['status'] == 'supported':
+            record = build(app, state, accept)
+            result = launch_record(record, state, switch=True)
+            atomic_json(state / 'startup-status.json', {
+                'status': 'current', 'at': stamp(), 'app': record['app'],
+                'source_version': source_status['version'], 'source_build': source_status['build']})
+            return result
+        reason = source_status['message']
+        status = 'waiting_for_adapter'
+    except (MarkError, OSError, ValueError, subprocess.SubprocessError) as error:
+        reason = str(error)[:1000]
+        status = 'rebuild_failed'
+    if not active:
+        raise MarkError(reason)
+    result = launch_record(active, state, switch=True)
+    message = ('正式版已升级，适配尚未发布；已继续打开当前 ChatGPT mark。'
+               if status == 'waiting_for_adapter' else '新版副本准备失败；已继续打开上一可用版本。')
+    atomic_json(state / 'startup-status.json', {
+        'status': status, 'at': stamp(), 'app': active['app'], 'message': message,
+        'reason': reason, 'source_version': source_status.get('version') if source_status else None,
+        'source_build': source_status.get('build') if source_status else None})
+    return {**result, 'compatibility_status': status, 'message': message}
+
+
 def schedule_switch(app, state, command, switch=False, accept=False):
     """Return before Codex exits; the detached child owns switching and its result."""
     state.mkdir(parents=True, exist_ok=True)
@@ -352,13 +385,18 @@ def install_launcher(state, app, launcher_dir):
     temporary = launcher_dir / ('.mark-' + uuid.uuid4().hex + '.app')
     executable = temporary / 'Contents/MacOS/mark'
     executable.parent.mkdir(parents=True, exist_ok=True)
-    args = ['/usr/bin/python3', '-B', str(package / 'mark.py'), '--app', str(app), '--state-dir', str(state), '--gui', 'launch', '--switch']
+    args = ['/usr/bin/python3', '-B', str(package / 'mark.py')]
+    default_apps = {Path('/Applications/ChatGPT.app'), Path('/Applications/Codex.app'),
+                    Path.home() / 'Applications/ChatGPT.app', Path.home() / 'Applications/Codex.app'}
+    if app.resolve() not in {candidate.resolve() for candidate in default_apps}:
+        args.extend(('--app', str(app)))
+    args.extend(('--state-dir', str(state), '--gui', 'start'))
     script = temporary / 'Contents/Resources/launch.sh'
     script.parent.mkdir(parents=True, exist_ok=True)
     script.write_text('#!/bin/sh\nexec ' + shlex.join(args) + '\n')
     script.chmod(0o755)
     info = {'CFBundleIdentifier': 'local.mark.launcher', 'CFBundleName': 'mark', 'CFBundleDisplayName': 'mark',
-            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.1', 'LSUIElement': True,
+            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.2', 'LSUIElement': True,
             'LSArchitecturePriority': ['arm64'], 'LSMinimumSystemVersion': '11.0'}
     (temporary / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     try:
@@ -450,7 +488,7 @@ def main():
         updater.add_argument('--accept-local-resign', action='store_true')
         updater.add_argument('--detached', action='store_true')
         updater.add_argument('--deferred-result', type=Path, help=argparse.SUPPRESS)
-    for name in ('prepare', 'install', 'launch', 'rollback', 'upgrade'):
+    for name in ('prepare', 'install', 'launch', 'rollback', 'upgrade', 'start'):
         p = sub.add_parser(name)
         p.add_argument('--accept-local-resign', action='store_true')
         p.add_argument('--switch', action='store_true')
@@ -512,6 +550,8 @@ def main():
                 with lock(state):
                     if args.command == 'upgrade':
                         result = upgrade_transaction(app, state, args.accept_local_resign, args.switch)
+                    elif args.command == 'start':
+                        result = start_managed(app, state, args.accept_local_resign)
                     elif args.command == 'rollback':
                         prior = read_json(state / 'state.json', {}).get('previous')
                         if not prior:

@@ -96,6 +96,30 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(calls[-1][-1], Path('/old.app'))
         self.assertEqual(manager.read_json(self.state / 'state.json'), previous)
 
+    def test_managed_start_keeps_working_copy_when_official_update_is_unsupported(self):
+        active = {'app': '/old/ChatGPT mark.app', 'version': 'old'}
+        manager.atomic_json(self.state / 'state.json', {'active': active})
+        with patch.object(manager, 'doctor', return_value={'status': 'unsupported_client', 'version': 'new', 'build': '2', 'message': 'unsupported'}), \
+             patch.object(manager, 'build') as build, \
+             patch.object(manager, 'launch_record', return_value={'status': 'running', 'app': active['app']}) as launch:
+            result = manager.start_managed(Path('/Applications/ChatGPT.app'), self.state)
+        build.assert_not_called()
+        launch.assert_called_once_with(active, self.state, switch=True)
+        self.assertEqual(result['compatibility_status'], 'waiting_for_adapter')
+        self.assertEqual(manager.read_json(self.state / 'startup-status.json')['status'], 'waiting_for_adapter')
+
+    def test_managed_start_uses_compatible_current_source(self):
+        record = {'app': '/new/ChatGPT mark.app', 'version': 'new'}
+        supported = {'status': 'supported', 'version': 'new', 'build': '2'}
+        with patch.object(manager, 'doctor', return_value=supported), \
+             patch.object(manager, 'build', return_value=record) as build, \
+             patch.object(manager, 'launch_record', return_value={'status': 'running', 'app': record['app']}) as launch:
+            result = manager.start_managed(Path('/Applications/ChatGPT.app'), self.state)
+        build.assert_called_once()
+        launch.assert_called_once_with(record, self.state, switch=True)
+        self.assertEqual(result['status'], 'running')
+        self.assertEqual(manager.read_json(self.state / 'startup-status.json')['status'], 'current')
+
     def test_integrity_rejects_changed_or_extra_package_files(self):
         package = self.state / 'package'; package.mkdir()
         (package / 'code.py').write_text('trusted local code')

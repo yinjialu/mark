@@ -1,6 +1,13 @@
-# mark v0.1.1
+# mark v0.1.2
 
-mark v0.1.1 适配升级后的 ChatGPT 桌面客户端，同时保留上一版客户端支持。
+mark v0.1.2 适配升级后的 ChatGPT 桌面客户端，并让正式版升级与 mark 副本更新互不阻塞。
+
+## 升级体验
+
+- 启动器遇到暂未适配的正式客户端时，继续打开上一可用的 ChatGPT mark，不再让日常入口失效。
+- 收藏页分别显示正式版和当前副本版本，并区分“已同步”“等待适配”和“可适配新版”。
+- 更新判断同时比较 mark 版本与正式客户端来源；同一 mark 版本已包含新适配器时，也能重新生成新版副本。
+- 新版构建或切换失败时保留旧副本、启动器与收藏数据。
 
 ## 新版客户端适配
 
@@ -26,7 +33,7 @@ mark v0.1.1 适配升级后的 ChatGPT 桌面客户端，同时保留上一版�
 
 ## 安装与升级
 
-阅读 [安装说明](https://github.com/yinjialu/mark/blob/v0.1.1/docs/INSTALL.md)，将其中的指令复制给 Codex，或使用终端安装脚本。也可下载 ZIP，解压后双击 `Install.command`。
+阅读 [安装说明](https://github.com/yinjialu/mark/blob/v0.1.2/docs/INSTALL.md)，将其中的指令复制给 Codex，或使用终端安装脚本。也可下载 ZIP，解压后双击 `Install.command`。
 
 preview.12 用户可在 mark 页面检查更新；preview.11 及更早版本需运行新的 GitHub 安装流程升级一次。无需迁移收藏数据。
 

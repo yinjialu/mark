@@ -27,6 +27,10 @@ def check_result(result):
         say('已经是最新兼容版本：' + (result.get('current_version') or '未知'))
         say('日常打开 ChatGPT mark；左侧 mark → 检查更新。')
         return 0
+    if status == 'waiting_for_adapter':
+        say(result.get('message', '正式版已升级，当前 ChatGPT mark 可继续使用。'))
+        say('无需降级或修改正式版；适配发布后再运行相同安装指令。')
+        return 2
     say(result.get('message', '检查失败，未开始安装。'))
     return 3 if status == 'offline' else 2
 
