@@ -358,7 +358,7 @@ def install_launcher(state, app, launcher_dir):
     script.write_text('#!/bin/sh\nexec ' + shlex.join(args) + '\n')
     script.chmod(0o755)
     info = {'CFBundleIdentifier': 'local.mark.launcher', 'CFBundleName': 'mark', 'CFBundleDisplayName': 'mark',
-            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.0', 'LSUIElement': True,
+            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.1', 'LSUIElement': True,
             'LSArchitecturePriority': ['arm64'], 'LSMinimumSystemVersion': '11.0'}
     (temporary / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     try:

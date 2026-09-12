@@ -10,20 +10,45 @@ import shutil
 import struct
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "26.901.51231"
-HEADER_HASH = "e2ab6e5985856e148ff78e79658e1241e9ab258d82453d201326bdd2e6779717"
-ASSET = "webview/assets/app-primary-6cd7b8b3f5e3.js"
+PROFILES = {
+    ("26.901.51231", "e2ab6e5985856e148ff78e79658e1241e9ab258d82453d201326bdd2e6779717"): {
+        "generation": 1,
+        "asset": "webview/assets/app-primary-6cd7b8b3f5e3.js",
+        "initial": "webview/assets/app-initial-cadb12d4a15e.js",
+        "mermaid": "webview/assets/mermaid-diagram-e0f2bd6686a8.js",
+        "rail": "webview/assets/thread-user-message-navigation-rail-app-555e91d9ccfc.js",
+        "tabs": "webview/assets/tabs-2fa243fa7caf.js",
+    },
+    ("26.908.40834", "517e720853645405849b726c8e32862c020154780d0c319d8df44b88d84086f1"): {
+        "generation": 2,
+        "asset": "webview/assets/app-primary-44ec287874b7.js",
+        "initial": "webview/assets/app-initial-9b95fa538c62.js",
+        "mermaid": "webview/assets/mermaid-diagram-d7ab7d6ebbc1.js",
+        "rail": "webview/assets/thread-user-message-navigation-rail-app-3f607bba867e.js",
+        "tabs": "webview/assets/tabs-90f6572747cb.js",
+    },
+}
+VERSION = HEADER_HASH = ASSET = INITIAL = MERMAID = RAIL = TABS = None
+GENERATION = None
 PRELOAD = ".vite/build/preload.js"
 BOOTSTRAP = ".vite/build/early-bootstrap.js"
 BRIDGE = ".vite/build/codex-marks-main.cjs"
-INITIAL = "webview/assets/app-initial-cadb12d4a15e.js"
-MERMAID = "webview/assets/mermaid-diagram-e0f2bd6686a8.js"
 BLOCKS = "webview/assets/codex-marks-blocks.js"
-RAIL = "webview/assets/thread-user-message-navigation-rail-app-555e91d9ccfc.js"
 LIBRARY = "webview/assets/codex-marks-library.js"
 LIBRARY_BRIDGE = ".vite/build/codex-marks-library.cjs"
 UPDATE_BRIDGE = ".vite/build/codex-marks-update.cjs"
 SIDEBAR = "webview/assets/codex-marks-sidebar.js"
+
+
+def configure(version, header_hash):
+    global VERSION, HEADER_HASH, ASSET, INITIAL, MERMAID, RAIL, TABS, GENERATION
+    profile = PROFILES.get((version, header_hash))
+    if profile is None:
+        raise ValueError("Client version mismatch; rebuild the patch for this version")
+    VERSION, HEADER_HASH = version, header_hash
+    ASSET, INITIAL, MERMAID, RAIL, TABS = (profile[name] for name in
+        ("asset", "initial", "mermaid", "rail", "tabs"))
+    GENERATION = profile["generation"]
 
 
 def digest(data):
@@ -69,21 +94,26 @@ def entries(tree, prefix=""):
 
 
 def replace_toolbar(script):
-    start = script.index("function ylr(e){")
-    end = script.index("var blr,xlr,g3,Slr=", start)
+    function_name = "ylr" if GENERATION == 1 else "u4n"
+    next_declaration = "var blr,xlr,g3,Slr=" if GENERATION == 1 else "var d4n,f4n,q3,p4n="
+    start = script.index(f"function {function_name}(e){{")
+    end = script.index(next_declaration, start)
     original = script[start:end]
     tail = original.index("let S;return t[41]")
     expected = "children:[_,v,y,b,x]"
     if original.count(expected) != 1 or "__codexMarks" in script:
         raise ValueError("Toolbar structure does not match the pinned build")
+    jsx, container = ("g3", "KZt") if GENERATION == 1 else ("q3", "MOe")
     patched = original[:tail] + (
-        "return (0,g3.jsxs)(KZt,{children:[_,v,y,b,x,"
-        "(0,g3.jsx)(__codexMarksNativeButton,{selectedText:u,selectionSource:e.markSource})]})}"
+        f"return (0,{jsx}.jsxs)({container},{{children:[_,v,y,b,x,"
+        f"(0,{jsx}.jsx)(__codexMarksNativeButton,{{selectedText:u,selectionSource:e.markSource}})]}})}}"
     )
     addition = "\n".join((ROOT / "src" / name).read_text() for name in
                          ("toolbar-button.js", "selection-source.js", "underlines.js"))
     script = script[:start] + patched + "\n" + addition + "\n" + script[end:]
-    before = 'let{portalTarget:r,rect:o,selectedText:s,selectionRange:l,target:u}=e,d=Jn(u,l,s);return(0,QBr.jsx)(ylr,{selectedText:s,'
+    before = ('let{portalTarget:r,rect:o,selectedText:s,selectionRange:l,target:u}=e,d=Jn(u,l,s);return(0,QBr.jsx)(ylr,{selectedText:s,'
+              if GENERATION == 1 else
+              'let{portalTarget:r,rect:o,selectedText:s,selectionRange:l,target:u}=e,d=vge(u,l,s);return(0,s7.jsx)(u4n,{selectedText:s,')
     if script.count(before) != 1:
         raise ValueError("Selection source integration does not match the pinned build")
     after = before + 'markSource:__codexMarksSelectionSource(u,l,s,d),'
@@ -139,6 +169,8 @@ def repack(archive, replacements, target):
 def replace_blocks(archive, primary):
     """Add a child to existing action groups; keep block renderers and actions intact."""
     header = 'import {renderMarkButton as __markBlockButton} from "./codex-marks-blocks.js";\n'
+    if GENERATION == 2:
+        return replace_blocks_v2(archive, primary)
     mermaid = archive.read(MERMAID).decode()
     start = mermaid.index('let De=v?`code-block`:`exclude`')
     end = mermaid.index('let ke=!l&&`invisible`', start)
@@ -173,6 +205,66 @@ def replace_blocks(archive, primary):
     return primary, initial, mermaid
 
 
+def replace_blocks_v2(archive, primary):
+    """Patch the 26.908 renderer structures after validating each native action group."""
+    header = 'import {renderMarkButton as __markBlockButton} from "./codex-marks-blocks.js";\n'
+    mermaid = archive.read(MERMAID).decode()
+    before = 'onCopy:L})]}):null,t[51]=U'
+    after = ('onCopy:L}),(0,I.jsx)(__MarkMermaid,{kind:"mermaid",source:r,getElement:()=>g.current,'
+             'serialize:el=>{const svg=el.querySelector("svg");if(!svg)throw Error("图表尚未完成");'
+             'return _e(svg,el,a).outerHTML}})]}):null,t[51]=U')
+    if mermaid.count(before) != 1:
+        raise ValueError('Mermaid action group changed')
+    mermaid = mermaid.replace(before, after, 1)
+    before = 'ref:g,className:X,dir:`ltr`'
+    if mermaid.count(before) != 1:
+        raise ValueError('Mermaid render target changed')
+    mermaid = mermaid.replace(before, 'ref:g,className:X,"data-codex-mark-block-kind":"mermaid",dir:`ltr`', 1)
+    mermaid = header + mermaid + '\nfunction __MarkMermaid(e){return __markBlockButton(F,I,ue,e)}\n'
+
+    initial = archive.read(INITIAL).decode()
+    before = ('let O;t[27]!==E||t[28]!==D?(O=(0,eq.jsx)(`div`,{className:NK.TableActions,'
+              '"data-markdown-copy":`exclude`,children:(0,eq.jsxs)(Tqi,{className:`sticky top-1`,children:[E,D]})}),'
+              't[27]=E,t[28]=D,t[29]=O):O=t[29];')
+    after = ('let O;t[27]!==E||t[28]!==D?(O=(0,eq.jsx)(`div`,{className:NK.TableActions,'
+             '"data-markdown-copy":`exclude`,children:(0,eq.jsxs)(Tqi,{className:`sticky top-1`,'
+             'children:[E,D,(0,eq.jsx)(__MarkTable,{kind:"table",source:a,caption:"表格",'
+             'getElement:button=>button?.closest("[data-markdown-table]")?.querySelector("table")})]})}),'
+             't[27]=E,t[28]=D,t[29]=O):O=t[29];')
+    if initial.count(before) != 1:
+        raise ValueError('Table action group changed')
+    initial = initial.replace(before, after, 1)
+
+    start = initial.index('function sqi(e){')
+    end = initial.index('var KK,qK,JK,', start)
+    component = initial[start:end]
+    before = 'let te;return t[53]'
+    cut = component.index(before)
+    replacement = ('return (0,JK.jsxs)("span",{"data-codex-mark-image-wrap":"",'
+                   'style:{display:"inline-flex",alignItems:"flex-start",gap:4,maxWidth:"100%"},children:['
+                   '(0,JK.jsx)(HGi,{src:D,alt:O,open:_,onOpenChange:v,caption:O,downloadSrc:D,'
+                   'onDownloadClick:p,onPreviousImage:R,onNextImage:z,triggerContent:ee}),(0,JK.jsx)(__MarkImage,'
+                   '{kind:"image",source:u,caption:r,loadImage:()=>u,getElement:button=>button?.closest('
+                   '"[data-codex-mark-image-wrap]")?.querySelector("img")})]})}')
+    component = component[:cut] + replacement
+    initial = initial[:start] + component + initial[end:]
+    initial = header + initial + ('\nfunction __MarkTable(e){return __markBlockButton(xJi,eq,Ir,e)}\n'
+                                  'function __MarkImage(e){return __markBlockButton(qK,JK,Ir,e)}\n')
+
+    before = 'onDownloadClick:m==null?void 0:()=>m(e)})'
+    if primary.count(before) != 1:
+        raise ValueError('Generated image action target changed')
+    source = 'e.src??e.previewSrc??``'
+    after = (before + ',i&&(0,vX.jsx)("div",{style:{position:"absolute",right:4,top:4,zIndex:10},'
+             'children:(0,vX.jsx)(__MarkGallery,{kind:"image",source:' + source + ',caption:Fgn(k,t+1),'
+             'getElement:button=>button?.closest("[data-image-transparency-backdrop-scope]")?.querySelector("img"),'
+             'loadImage:()=>{const n=' + source + ';return tX({absoluteImageFilePath:nx(n),hostId:O.get(Wb),'
+             'imageAssetResolver:l,queryClient:O.queryClient,src:n})}})})')
+    primary = primary.replace(before, after, 1)
+    primary = header + primary + '\nfunction __MarkGallery(e){return __markBlockButton(_X,vX,HE,e)}\n'
+    return primary, initial, mermaid
+
+
 def replace_sidebar(primary):
     """Insert a destination into the native list without product-mode gating."""
     def once(before, after):
@@ -180,30 +272,43 @@ def replace_sidebar(primary):
         if primary.count(before) != 1:
             raise ValueError('Sidebar structure changed: ' + before[:70])
         primary = primary.replace(before, after, 1)
-    once('function $Sn({desktopNavItemsEnabled:e,destinationDiscoveryEnabled:t,onSelectSpace:n,sidebarMode:r}){',
-         'function $Sn({desktopNavItemsEnabled:e,destinationDiscoveryEnabled:t,onSelectSpace:n,sidebarMode:r}){const __markItem=__getMarkSidebar().useItem();')
-    once('onPrefetch:()=>{tCn(i,g,m)}}),e&&r===`codex`&&h&&JSn(',
-         'onPrefetch:()=>{tCn(i,g,m)}}),e&&M.push(__markItem),e&&r===`codex`&&h&&JSn(')
-    once('M.push(...A.filter(({id:e})=>e!==Hy.pullRequests)),M}',
-         'M.push(...A.filter(({id:e})=>e!==Hy.pullRequests)),__markItem.isCurrentDestination?M.map(item=>item.id===__markItem.id?item:{...item,isCurrentDestination:false}):M}')
-    once('return t===Hy.debug||t===Hy.finance||t===Hy.gpts||!1}',
-         'return t===`builtin:mark`||t===Hy.debug||t===Hy.finance||t===Hy.gpts||!1}')
-    once('visibleByDefault:e.id===Hy.projects||e.id===Hy.library||!1',
-         'visibleByDefault:e.id===`builtin:mark`||e.id===Hy.projects||e.id===Hy.library||!1')
+    function_name = '$Sn' if GENERATION == 1 else 'jQt'
+    list_name = 'M' if GENERATION == 1 else 'L'
+    destination_name = 'Hy' if GENERATION == 1 else '_w'
+    once(f'function {function_name}({{desktopNavItemsEnabled:e,destinationDiscoveryEnabled:t,onSelectSpace:n,sidebarMode:r}}){{',
+         f'function {function_name}({{desktopNavItemsEnabled:e,destinationDiscoveryEnabled:t,onSelectSpace:n,sidebarMode:r}}){{const __markItem=__getMarkSidebar().useItem();')
+    if GENERATION == 2:
+        once('onPrefetch:()=>{MQt(i,x,y)}}),e&&r===`codex`&&b&&EQt(',
+             'onPrefetch:()=>{MQt(i,x,y)}}),e&&L.push(__markItem),e&&r===`codex`&&b&&EQt(')
+    else:
+        once('onPrefetch:()=>{tCn(i,g,m)}}),e&&r===`codex`&&h&&JSn(',
+             'onPrefetch:()=>{tCn(i,g,m)}}),e&&M.push(__markItem),e&&r===`codex`&&h&&JSn(')
+    if GENERATION == 1:
+        once('M.push(...A.filter(({id:e})=>e!==Hy.pullRequests)),M}',
+             'M.push(...A.filter(({id:e})=>e!==Hy.pullRequests)),__markItem.isCurrentDestination?M.map(item=>item.id===__markItem.id?item:{...item,isCurrentDestination:false}):M}')
+    else:
+        once('L.push(...F.filter(({id:e})=>e!==_w.pullRequests)),L}',
+             'L.push(...F.filter(({id:e})=>e!==_w.pullRequests)),__markItem.isCurrentDestination?L.map(item=>item.id===__markItem.id?item:{...item,isCurrentDestination:false}):L}')
+    gate = f'return t==={destination_name}.debug'
+    once(gate, f'return t===`builtin:mark`||t==={destination_name}.debug')
+    visibility = f'visibleByDefault:e.id==={destination_name}.projects||e.id==={destination_name}.library||!1'
+    once(visibility, f'visibleByDefault:e.id===`builtin:mark`||e.id==={destination_name}.projects||e.id==={destination_name}.library||!1')
     primary = ('import {createMarkSidebar as __createMarkSidebar} from "./codex-marks-sidebar.js";\n'
-               'import {__markNativeComponents} from "./app-initial-cadb12d4a15e.js";\n' + primary)
+               f'import {{__markNativeComponents}} from "./{Path(INITIAL).name}";\n' + primary)
     primary += '\nlet __markSidebarIntegration;function __getMarkSidebar(){return __markSidebarIntegration??=(__createMarkSidebar(__markNativeComponents()));}\n'
     return primary
 
 
 def replace_page(initial):
     # Route uses the same parent outlet and access boundary as the Plugins page.
-    needle='(0,i3.jsxs)(nT,{path:`/plugins`,children:['
+    jsx, route = ('i3', 'nT') if GENERATION == 1 else ('O2', 'sb')
+    needle=f'(0,{jsx}.jsxs)({route},{{path:`/plugins`,children:['
     if initial.count(needle) != 1:
         raise ValueError('Native plugins route changed')
-    initial=initial.replace(needle,'(0,i3.jsx)(nT,{path:`/mark`,element:(0,i3.jsx)(__MarkPageRoute,{})}),'+needle,1)
+    initial=initial.replace(needle,f'(0,{jsx}.jsx)({route},{{path:`/mark`,element:(0,{jsx}.jsx)(__MarkPageRoute,{{}})}}),'+needle,1)
     initial='import {createMarkSidebar as __createMarkPage} from "./codex-marks-sidebar.js";\n'+initial
-    initial+='\nlet __markPageIntegration;function __MarkPageRoute(){__markPageIntegration??=__createMarkPage(__markNativeComponents());return G().jsx(__markPageIntegration.Page,{});}\n'
+    runtime = 'G()' if GENERATION == 1 else 'y()'
+    initial+=f'\nlet __markPageIntegration;function __MarkPageRoute(){{__markPageIntegration??=__createMarkPage(__markNativeComponents());return {runtime}.jsx(__markPageIntegration.Page,{{}});}}\n'
     return initial
 
 
@@ -214,35 +319,52 @@ def prepare(app, output, plugin):
         raise ValueError("Use a new output directory outside the installed app")
     info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
     archive = Archive(app / "Contents/Resources/app.asar")
-    if info.get("CFBundleIdentifier") != "com.openai.codex" or info.get("CFBundleShortVersionString") != VERSION:
-        raise ValueError("Client version mismatch; rebuild the patch for this version")
-    if digest(archive.raw_header) != HEADER_HASH:
+    source_hash = digest(archive.raw_header)
+    if info.get("CFBundleIdentifier") != "com.openai.codex":
+        raise ValueError("Client bundle identifier mismatch")
+    configure(info.get("CFBundleShortVersionString"), source_hash)
+    if source_hash != HEADER_HASH:
         raise ValueError("Client archive changed; refusing a blind patch")
     if info["ElectronAsarIntegrity"]["Resources/app.asar"]["hash"] != HEADER_HASH:
         raise ValueError("Client integrity metadata mismatch")
     modified, original_component, patched_component = replace_toolbar(archive.read(ASSET).decode())
     modified, initial, mermaid = replace_blocks(archive, modified)
     modified = replace_sidebar(modified)
-    if 'function aTr(e,t,n){return e.set(G8,t,n)' not in modified:
-        raise ValueError('Native source navigation registry changed')
-    modified += '\n' + (ROOT / 'src/native-source.js').read_text()
+    if GENERATION == 1:
+        if 'function aTr(e,t,n){return e.set(G8,t,n)' not in modified:
+            raise ValueError('Native source navigation registry changed')
+        modified += '\n' + (ROOT / 'src/native-source.js').read_text()
+    else:
+        if 'function C6n(e,t,n,r){return e.get(g6,t)?.revealResponseTextAnnotation' not in modified:
+            raise ValueError('Native source navigation registry changed')
+        modified += '\n' + (ROOT / 'src/native-source-v2.js').read_text()
 
     initial = replace_page(initial)
     # Native components are initialized by their original lazy module initializers.
-    initial = 'import {n as __initMarkTabs,t as __MarkTabs} from "./tabs-2fa243fa7caf.js";\n' + initial
-    initial += '\nexport function __markNativeComponents(){qN();pH();gq();oCo();__initMarkTabs();return {React:c(),jsx:G(),createPortal:pe().createPortal,Button:KN,Tabs:__MarkTabs,PageLayout:$So,Dialog:cH,Title:lH,Description:uH,Input:P6i,useNavigate:$w,useLocation:Zw};}\n'
+    initial = f'import {{n as __initMarkTabs,t as __MarkTabs}} from "./{Path(TABS).name}";\n' + initial
+    if GENERATION == 1:
+        initial += '\nexport function __markNativeComponents(){qN();pH();gq();oCo();__initMarkTabs();return {React:c(),jsx:G(),createPortal:pe().createPortal,Button:KN,Tabs:__MarkTabs,PageLayout:$So,Dialog:cH,Title:lH,Description:uH,Input:P6i,useNavigate:$w,useLocation:Zw};}\n'
+    else:
+        initial += '\nexport function __markNativeComponents(){i7a();IG();Rnn();__initMarkTabs();return {React:a(),jsx:y(),createPortal:b().createPortal,Button:Ir,Tabs:__MarkTabs,PageLayout:Z5a,Input:TPi,useNavigate:nb,useLocation:eb};}\n'
     rail = archive.read(RAIL).decode()
-    expected = 'export{Qt as AppThreadUserMessageNavigationRail};'
+    expected = ('export{Qt as AppThreadUserMessageNavigationRail};' if GENERATION == 1 else
+                'export{$t as AppThreadUserMessageNavigationRail};')
     if rail.count(expected) != 1:
         raise ValueError('Native navigation entry changed')
-    rail = ('import {createMarksUI as __createMarksUI} from "./codex-marks-library.js";\n'
-            'import {__markNativeComponents} from "./app-initial-cadb12d4a15e.js";\n'
-            'import {__markUseRevealSource} from "./app-primary-6cd7b8b3f5e3.js";\n' +
-            rail.replace(expected, 'export{__MarkRailRoot as AppThreadUserMessageNavigationRail};') +
-            '\nconst __markUI=__markNativeComponents();'
-            'const __MarkLibrary=__createMarksUI(tn,nn,{...__markUI,Marker:Ke,Preview:qe,Tooltip:ue,Icon:lt,createPortal:Wt.createPortal});'
-            'function __MarkRailRoot(e){const {getScrollElement}=Ie(),navigate=__markUI.useNavigate(),location=__markUI.useLocation(),onRevealMark=__markUseRevealSource();'
-            'return (0,nn.jsxs)(nn.Fragment,{children:[(0,nn.jsx)(Qt,e),(0,nn.jsx)(__MarkLibrary,{...e,getScrollElement,navigate,onRevealMark,pathname:location.pathname})]});}\n')
+    prefix = ('import {createMarksUI as __createMarksUI} from "./codex-marks-library.js";\n'
+              f'import {{__markNativeComponents}} from "./{Path(INITIAL).name}";\n'
+              f'import {{__markUseRevealSource}} from "./{Path(ASSET).name}";\n')
+    if GENERATION == 1:
+        suffix = ('\nconst __markUI=__markNativeComponents();'
+                  'const __MarkLibrary=__createMarksUI(tn,nn,{...__markUI,Marker:Ke,Preview:qe,Tooltip:ue,Icon:lt,createPortal:Wt.createPortal});'
+                  'function __MarkRailRoot(e){const {getScrollElement}=Ie(),navigate=__markUI.useNavigate(),location=__markUI.useLocation(),onRevealMark=__markUseRevealSource();'
+                  'return (0,nn.jsxs)(nn.Fragment,{children:[(0,nn.jsx)(Qt,e),(0,nn.jsx)(__MarkLibrary,{...e,getScrollElement,navigate,onRevealMark,pathname:location.pathname})]});}\n')
+    else:
+        suffix = ('\nconst __markUI=__markNativeComponents();'
+                  'const __MarkLibrary=__createMarksUI(nn,rn,{...__markUI,Marker:Ke,Preview:qe,Tooltip:Fe,Icon:lt,createPortal:Gt.createPortal});'
+                  'function __MarkRailRoot(e){const {getScrollElement}=Ie(),navigate=__markUI.useNavigate(),location=__markUI.useLocation(),onRevealMark=__markUseRevealSource();'
+                  'return (0,rn.jsxs)(rn.Fragment,{children:[(0,rn.jsx)($t,e),(0,rn.jsx)(__MarkLibrary,{...e,getScrollElement,navigate,onRevealMark,pathname:location.pathname})]});}\n')
+    rail = prefix + rail.replace(expected, 'export{__MarkRailRoot as AppThreadUserMessageNavigationRail};') + suffix
     bootstrap = archive.read(BOOTSTRAP)
     if bootstrap.count(b"Promise.resolve().then") != 1:
         raise ValueError("Bootstrap structure changed")
@@ -273,8 +395,10 @@ def prepare(app, output, plugin):
     extracted = output / "review"; extracted.mkdir()
     (extracted / "toolbar-before.js").write_text(original_component)
     (extracted / "toolbar-after.js").write_text(patched_component)
-    parent_start = modified.index("function XBr(e){")
-    parent_end = modified.index("var ZBr,QBr,$Br=", parent_start)
+    parent_name, parent_declaration = (("XBr", "var ZBr,QBr,$Br=") if GENERATION == 1 else
+                                       ("clr", "var llr,s7,ulr="))
+    parent_start = modified.index(f"function {parent_name}(e){{")
+    parent_end = modified.index(parent_declaration, parent_start)
     (extracted / "selection-parent.js").write_text(modified[parent_start:parent_end])
     for key, data in replacements.items():
         (extracted / Path(key).name).write_bytes(data)

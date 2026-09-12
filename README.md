@@ -4,9 +4,9 @@
 
 选中文字点 **mark**；图片、Mermaid 图表和表格也能保存。通过右侧导航回看当前任务，或在左侧 **mark** 页面搜索所有收藏。
 
-[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载 v0.1.0](https://github.com/yinjialu/mark/releases/tag/v0.1.0) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md) · [官方目录收录说明](docs/PUBLISHING.md)
+[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载 v0.1.1](https://github.com/yinjialu/mark/releases/tag/v0.1.1) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md) · [官方目录收录说明](docs/PUBLISHING.md)
 
-> **v0.1.0 · 首个正式发布版本。** 界面集成仅支持 **macOS Apple Silicon，Codex 26.901.51231 / build 8109**，还会校验客户端包的完整性。不是 OpenAI 官方项目；其他版本会停止安装，等待适配。
+> **v0.1.1。** 界面集成支持 **macOS Apple Silicon，ChatGPT 26.908.40834 / build 8881**，并继续支持 **26.901.51231 / build 8109**。安装器会校验客户端版本、构建号、架构和包完整性；其他版本停止安装，等待适配。本项目不是 OpenAI 官方项目。
 
 ## 30 秒上手
 
@@ -20,18 +20,18 @@ Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会�
 
 收藏库位于 Codex 主内容区，复用原生页面布局、搜索、Tabs 标签切换、按钮和侧边栏组件。文字保留上下文与高亮，表格保留完整行列。
 
-### v0.1.0 收藏页
+### 收藏页
 
 打开后自动选择一条收藏。列表显示内容摘要、类型、来源和标签；右侧先展示收藏片段，点击“查看上下文”再展开完整快照。“定位原文”位于详情顶部；编辑标题、标签和备注时会显示未保存状态。
 
-![mark v0.1.0 浅色收藏页：片段预览、来源定位与编辑入口](docs/images/library-v1-light.png)
+![mark 浅色收藏页：片段预览、来源定位与编辑入口](docs/images/library-v1-light.png)
 
 <details>
 <summary>查看深色模式和表格预览</summary>
 
-![mark v0.1.0 深色收藏页](docs/images/library-v1-dark.png)
+![mark 深色收藏页](docs/images/library-v1-dark.png)
 
-![mark v0.1.0 完整表格预览](docs/images/table-v1-dark.png)
+![mark 完整表格预览](docs/images/table-v1-dark.png)
 
 </details>
 
@@ -44,7 +44,7 @@ Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会�
 
 ![ChatGPT mark 实际客户端：Mermaid 图表预览与来源定位入口](docs/images/client-mermaid.png)
 
-*用户提供并授权展示的实际客户端截图，拍摄于 v0.1.0 页面调整和更新入口加入之前。*
+*用户提供并授权展示的实际客户端截图，拍摄于收藏页调整和更新入口加入之前。*
 
 </details>
 

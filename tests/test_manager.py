@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('mark_manager', ROOT / 'mark.py')
 manager = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(manager)
+import patch_client
 
 
 class ManagerTests(unittest.TestCase):
@@ -29,6 +30,18 @@ class ManagerTests(unittest.TestCase):
             self.assertIsNone(manager.select_adapter({**self.info, key: value}, a['header_sha256'], a['architecture'], [a]))
         self.assertIsNone(manager.select_adapter(self.info, '0' * 64, a['architecture'], [a]))
         self.assertIsNone(manager.select_adapter(self.info, a['header_sha256'], 'x86_64', [a]))
+
+    def test_every_manifest_adapter_has_an_exact_patch_profile(self):
+        adapters = manager.read_json(ROOT / 'compatibility.json')['adapters']
+        self.assertEqual(len(adapters), 2)
+        for adapter in adapters:
+            key = (adapter['version'], adapter['header_sha256'])
+            self.assertIn(key, patch_client.PROFILES)
+            patch_client.configure(*key)
+            self.assertEqual(patch_client.VERSION, adapter['version'])
+            self.assertEqual(patch_client.HEADER_HASH, adapter['header_sha256'])
+        with self.assertRaises(ValueError):
+            patch_client.configure('future-version', '0' * 64)
 
     def test_unknown_upgrade_preserves_current_and_never_patches(self):
         active = {'active': {'app': '/existing/ChatGPT mark.app'}}

@@ -45,7 +45,7 @@ curl --fail --show-error --location --proto '=https' --tlsv1.2 https://raw.githu
 | 项目 | 当前支持 |
 | --- | --- |
 | 系统 | macOS，Apple Silicon / arm64 |
-| Codex | 26.901.51231，build 8109，原始 OpenAI 签名 |
+| ChatGPT | 26.908.40834（build 8881）或 26.901.51231（build 8109），原始 OpenAI 签名 |
 | 工具 | Command Line Tools：git、clang、codesign、`/usr/bin/python3` |
 | Codex CLI | 可选，仅安装标准插件时需要 |
 
@@ -91,7 +91,7 @@ codex plugin add codex-marks@mark
 - 在左侧 **mark** 收藏页点击 **检查更新**。打开此页时也会自动检查，成功结果缓存 24 小时，网络失败缓存 15 分钟；手动检查跳过缓存。
 - 发现兼容更新后，点击 **安装并重启** 确认，或选择 **暂不更新**。只有确认后才下载 ZIP，核对发布包 SHA256、文件清单和兼容性，再构建和切换。
 - 成功升级或回退后，已有的 Dock mark 入口自动更新；旧副本保留供回退。
-- 正式客户端升级后，先在 mark 中检查是否已有匹配的新适配器；也可重新运行 `~/Applications/mark.app` 检查当前包的兼容性。没有适配器时继续使用已有副本，等待新的发布包。
+- 正式客户端升级后，先保持日常 ChatGPT mark 副本不变，再运行 `~/Applications/mark.app` 或重新执行 GitHub 安装指令。安装器会读取新的正式版，只在发布包存在精确匹配适配器时生成并切换新副本；没有适配器时继续使用已有副本，等待新的发布包。
 - 回退：在安装包目录执行 `python3 -B mark.py rollback --switch --detached`。首次安装没有旧副本时会说明原因。
 - 改用正式版：正常退出 ChatGPT mark，再打开原始客户端。
 

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release": "0.1.0",
+  "release": "0.1.1",
   "adapters": [
     {
       "id": "codex-26.901.51231-arm64-v1",
@@ -9,6 +9,28 @@
       "architecture": "arm64",
       "bundle_id": "com.openai.codex",
       "header_sha256": "e2ab6e5985856e148ff78e79658e1241e9ab258d82453d201326bdd2e6779717",
+      "framework": "Contents/Frameworks/Codex Framework.framework",
+      "helpers": "Contents/Frameworks/Codex Framework.framework/Versions/152.0.7977.83/Helpers",
+      "features": [
+        "selection-toolbar",
+        "text-underline",
+        "image",
+        "mermaid",
+        "table",
+        "right-navigation",
+        "integrated-library",
+        "left-sidebar-entry",
+        "native-library-page",
+        "native-rail-hover"
+      ]
+    },
+    {
+      "id": "codex-26.908.40834-arm64-v1",
+      "version": "26.908.40834",
+      "build": "8881",
+      "architecture": "arm64",
+      "bundle_id": "com.openai.codex",
+      "header_sha256": "517e720853645405849b726c8e32862c020154780d0c319d8df44b88d84086f1",
       "framework": "Contents/Frameworks/Codex Framework.framework",
       "helpers": "Contents/Frameworks/Codex Framework.framework/Versions/152.0.7977.83/Helpers",
       "features": [
