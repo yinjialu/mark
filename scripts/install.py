@@ -89,7 +89,7 @@ def main():
             return code
         say('将下载校验后的发布包，在本机生成 ChatGPT mark 独立副本并本地重签名。')
         say('仅副本启用 disable-library-validation；正式应用和系统安全设置保持原样。')
-        say('安装 ~/Applications/mark.app（已有自定义位置会沿用），完成后正常退出当前客户端并切换；收藏和旧副本保留。')
+        say('安装 ~/Applications/ChatGPT mark.app（已有自定义位置会沿用），完成后正常退出当前客户端并切换；收藏和旧副本保留。')
         if not args.yes:
             if not sys.stdin.isatty():
                 say('尚未开始安装。请在交互终端运行，或明确接受上述操作后加 --yes。')

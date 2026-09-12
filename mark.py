@@ -507,15 +507,17 @@ def install_launcher(state, app, launcher_dir):
         package.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(ROOT, package, ignore=shutil.ignore_patterns('.git', '__pycache__', '*.pyc'))
     verify_package(package)
-    launcher = launcher_dir / 'mark.app'
-    previous = None
-    if launcher.exists():
-        info = plistlib.loads((launcher / 'Contents/Info.plist').read_bytes())
+    launcher = launcher_dir / 'ChatGPT mark.app'
+    legacy = launcher_dir / 'mark.app'
+    existing = []
+    for candidate in (launcher, legacy):
+        if not candidate.exists():
+            continue
+        info = plistlib.loads((candidate / 'Contents/Info.plist').read_bytes())
         if info.get('CFBundleIdentifier') != 'local.mark.launcher':
-            raise MarkError('mark.app 名称已被其他应用使用，请指定另一个 --launcher-dir。')
-        previous = state / 'launcher-backups' / uuid.uuid4().hex
-        previous.parent.mkdir(parents=True, exist_ok=True)
-    temporary = launcher_dir / ('.mark-' + uuid.uuid4().hex + '.app')
+            raise MarkError(candidate.name + ' 已被其他应用使用，请指定另一个 --launcher-dir。')
+        existing.append(candidate)
+    temporary = launcher_dir / ('.ChatGPT-mark-' + uuid.uuid4().hex + '.app')
     executable = temporary / 'Contents/MacOS/mark'
     executable.parent.mkdir(parents=True, exist_ok=True)
     args = ['/usr/bin/python3', '-B', str(package / 'mark.py')]
@@ -532,9 +534,10 @@ def install_launcher(state, app, launcher_dir):
     if not icon.is_file():
         raise MarkError('安装包缺少 mark 图标。')
     shutil.copy2(icon, temporary / 'Contents/Resources/mark.icns')
-    info = {'CFBundleIdentifier': 'local.mark.launcher', 'CFBundleName': 'mark', 'CFBundleDisplayName': 'mark',
-            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.3', 'LSUIElement': True,
-            'CFBundleIconFile': 'mark.icns', 'LSArchitecturePriority': ['arm64'], 'LSMinimumSystemVersion': '11.0'}
+    info = {'CFBundleIdentifier': 'local.mark.launcher', 'CFBundleName': 'ChatGPT mark', 'CFBundleDisplayName': 'ChatGPT mark',
+            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.4', 'LSUIElement': True,
+            'CFBundleIconFile': 'mark.icns', 'LSArchitecturePriority': ['arm64'], 'LSMinimumSystemVersion': '11.0',
+            'CFBundleGetInfoString': 'ChatGPT mark - mark and revisit conversations'}
     (temporary / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     try:
         run(['/usr/bin/xcrun', 'clang', '-arch', 'arm64', '-mmacosx-version-min=11.0',
@@ -542,25 +545,34 @@ def install_launcher(state, app, launcher_dir):
         run(['/usr/bin/lipo', executable, '-verify_arch', 'arm64'], capture_output=True)
         run(['/usr/bin/codesign', '--force', '--sign', '-', temporary], capture_output=True)
         run(['/usr/bin/codesign', '--verify', '--deep', '--strict', temporary], capture_output=True)
-        if previous:
-            launcher.rename(previous)
+        backups = []
         try:
+            for candidate in existing:
+                backup = state / 'launcher-backups' / (uuid.uuid4().hex + '.app')
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                candidate.rename(backup)
+                backups.append((candidate, backup))
             temporary.rename(launcher)
         except Exception:
-            if previous:
-                previous.rename(launcher)
+            for candidate, backup in reversed(backups):
+                if backup.exists() and not candidate.exists():
+                    backup.rename(candidate)
             raise
     finally:
         if temporary.exists():
             shutil.rmtree(temporary)
     atomic_json(state / "launcher.json", {"path": str(launcher)})
+    # Refresh the single public launcher entry immediately after an upgrade.
+    # Internal client copies live below a .metadata_never_index state directory.
+    subprocess.run(['/usr/bin/mdimport', '-i', str(launcher)], check=False,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return package, launcher
 
 
 def upgrade_transaction(app, state, accept=False, switch=False):
     """Hold the manager lock across build, launcher replacement and launch."""
     before = read_json(state / 'state.json', {})
-    launcher = Path(read_json(state / 'launcher.json', {}).get('path', str(Path.home() / 'Applications/mark.app')))
+    launcher = Path(read_json(state / 'launcher.json', {}).get('path', str(Path.home() / 'Applications/ChatGPT mark.app')))
     backup = state / 'launcher-backups' / ('update-' + uuid.uuid4().hex + '.app')
     if launcher.exists():
         info = plistlib.loads((launcher / 'Contents/Info.plist').read_bytes())
@@ -571,17 +583,18 @@ def upgrade_transaction(app, state, accept=False, switch=False):
     installed = False
     try:
         record = build(app, state, accept)
-        install_launcher(state, app, launcher.parent)
+        installed_result = install_launcher(state, app, launcher.parent)
+        installed_launcher = Path(installed_result[1]) if installed_result else launcher
         installed = True
         result = launch_record(record, state, switch)
         prune_launcher_backups(state)
         return result
     except Exception:
         if installed:
-            if launcher.exists():
+            if installed_launcher.exists():
                 failed = state / 'launcher-backups' / ('failed-' + uuid.uuid4().hex + '.app')
                 failed.parent.mkdir(parents=True, exist_ok=True)
-                launcher.rename(failed)
+                installed_launcher.rename(failed)
             if backup.exists():
                 backup.rename(launcher)
         # Keep failed build diagnostics but restore known working state.

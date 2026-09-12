@@ -6,17 +6,19 @@
 
 选中文字点 **mark**；图片、Mermaid 图表和表格也能保存。通过右侧导航回看当前任务，或在左侧 **mark** 页面搜索所有收藏。
 
-[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载 v0.1.3](https://github.com/yinjialu/mark/releases/tag/v0.1.3) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md) · [官方目录收录说明](docs/PUBLISHING.md)
+[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载 v0.1.4](https://github.com/yinjialu/mark/releases/tag/v0.1.4) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md) · [官方目录收录说明](docs/PUBLISHING.md)
 
-> **v0.1.3。** 界面集成支持 **macOS Apple Silicon，ChatGPT 26.908.40834 / build 8881**，并继续支持 **26.901.51231 / build 8109**。安装器会校验客户端版本、构建号、架构和包完整性；其他版本保留当前可用副本并等待适配。本项目不是 OpenAI 官方项目。
+> **v0.1.4。** 界面集成支持 **macOS Apple Silicon，ChatGPT 26.908.40834 / build 8881**，并继续支持 **26.901.51231 / build 8109**。安装器会校验客户端版本、构建号、架构和包完整性；其他版本保留当前可用副本并等待适配。本项目不是 OpenAI 官方项目。
 
 ## 30 秒上手
 
-1. 日常打开 Dock 中的 **ChatGPT mark**。首次使用通过 `~/Applications/mark.app` 启动，再将运行中的 ChatGPT mark 固定到 Dock。
+1. 日常打开 Dock 中的 **ChatGPT mark**。首次使用通过 `~/Applications/ChatGPT mark.app` 启动，再将运行中的 ChatGPT mark 固定到 Dock。
 2. 选中文字点 **mark**；图片、图表和表格点旁边的书签按钮。再次点击可以取消。
 3. 当前任务里，用右侧短横线悬停预览、点击定位；跨任务查找，打开左侧 **mark** 收藏库。
 
 Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会自动指向对应副本；正式版 ChatGPT 保留在“应用程序”里供升级使用。[查看完整使用指南 →](docs/USAGE.md)
+
+macOS 系统搜索支持 `ChatGPT` 和 `mark`。搜索 `ChatGPT` 时会同时显示正式版与唯一的 **ChatGPT mark** 启动入口；内部构建副本不会作为日常入口参与新的 Spotlight 索引。
 
 ## 效果
 
@@ -80,7 +82,7 @@ Dock 只需保留一个 ChatGPT mark 入口。成功升级或回退后，它会�
 
 仓库分发「标准 Codex 插件 + 本机界面适配器」，不分发 Codex 客户端。安装器使用**对方 Mac 上已有的正式版**生成独立副本，进行本地签名，只给副本添加 `disable-library-validation` 权限。不会覆盖正式应用或修改系统全局安全设置。
 
-日常 Dock 入口直接打开当前副本。ChatGPT mark 副本不运行官方自更新；在 mark 收藏页点 **升级 ChatGPT**，客户端会安全退出副本并打开原始签名的 ChatGPT，由它完成官方更新。更新结束后重新打开 `~/Applications/mark.app`。启动器会检查新版本：已有精确适配时先生成新版副本再切换；尚未适配或构建失败时继续打开上一可用副本。mark 收藏页分别显示正式版与当前副本版本；同一个 mark 发布包支持新客户端时也会提示“适配新版并重启”，不会误判为已是最新。收藏页每天最多自动检查一次发布信息，也可手动重新检查。只有点击安装按钮才下载和切换；成功后保留当前副本、待切换副本和一个回退副本，并自动清理无引用的历史构建与安装包。内部副本目录不参与新的 Spotlight 索引，减少系统搜索里的重复入口；失败时恢复旧启动器和版本状态。断网不影响现有副本。
+日常 Dock 入口直接打开当前副本。ChatGPT mark 副本不运行官方自更新；在 mark 收藏页点 **升级 ChatGPT**，客户端会安全退出副本并打开原始签名的 ChatGPT，由它完成官方更新。更新结束后重新打开 `~/Applications/ChatGPT mark.app`。启动器会检查新版本：已有精确适配时先生成新版副本再切换；尚未适配或构建失败时继续打开上一可用副本。mark 收藏页分别显示正式版与当前副本版本；同一个 mark 发布包支持新客户端时也会提示“适配新版并重启”，不会误判为已是最新。收藏页每天最多自动检查一次发布信息，也可手动重新检查。只有点击安装按钮才下载和切换；成功后保留当前副本、待切换副本和一个回退副本，并自动清理无引用的历史构建与安装包。内部副本目录不参与新的 Spotlight 索引，减少系统搜索里的重复入口；失败时恢复旧启动器和版本状态。断网不影响现有副本。
 
 新图标使用本项目独立的书签与连续高亮波浪，不使用或改造 OpenAI/ChatGPT 标志；正式版 ChatGPT 保持原图标，Dock 中可以直接区分。
 

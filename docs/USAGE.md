@@ -8,11 +8,13 @@
 
 第一次使用，或 Dock 中还没有入口时：
 
-1. 在 Finder 中打开 `~/Applications/mark.app` 启动器。
+1. 在 Finder 中打开 `~/Applications/ChatGPT mark.app` 启动器。
 2. 等 **ChatGPT mark** 打开后，右键它正在运行的 Dock 图标，选择“选项 → 在程序坞中保留”。
 3. 如果还固定着正式版 ChatGPT 或旧的 Codex mark 图标，将这些旧入口从 Dock 移除，只保留 **ChatGPT mark**。从 Dock 移除图标不会卸载应用。
 
-固定的是正在运行的 **ChatGPT mark**。`mark.app` 是启动和兼容性检查工具，无需再固定一个图标。成功升级或回退后，Dock 中已有的 mark 入口会自动指向对应副本；如果你主动取消固定，更新不会重新添加它。
+固定的是正在运行的 **ChatGPT mark**。`ChatGPT mark.app` 是启动和兼容性检查工具，无需再固定一个图标。成功升级或回退后，Dock 中已有的 mark 入口会自动指向对应副本；如果你主动取消固定，更新不会重新添加它。
+
+也可以在 macOS 系统搜索中输入 `ChatGPT` 或 `mark`，打开显示为 **ChatGPT mark** 的入口。搜索 `ChatGPT` 时正式版也会出现，请通过名称和 mark 图标区分；内部构建副本不会作为日常入口参与新的 Spotlight 索引。
 
 正式版 ChatGPT 保留在“应用程序”中，供客户端升级时使用。直接打开正式版不会出现 mark 功能。
 
@@ -61,7 +63,7 @@ Mermaid 的“展开”按钮沿用客户端原有规则：图表未溢出时可
 
 收藏页会分别显示正式版和当前副本版本。发现新的 mark 包时点击 **安装并重启**；同一个 mark 包已支持刚升级的正式客户端时，按钮显示 **适配新版并重启**。请在正在执行的任务结束后操作。更新会先下载、校验并构建，完成后正常重启；下载或构建失败不关闭当前客户端，切换失败时尝试恢复旧版本和启动器。
 
-ChatGPT mark 副本不会运行官方客户端的自更新，因此不会再出现下载到一半后因本地签名而安装失败。需要升级客户端时，在收藏页点 **升级 ChatGPT**：mark 先验证原始应用的官方签名，再正常退出当前副本并打开正式版；打开失败会恢复当前副本。在正式版完成官方更新后，重新打开 `~/Applications/mark.app`。启动器会检查是否已有对应适配器：有则准备新版副本；没有或准备失败时仍打开上一可用副本，并在收藏页显示 **正式版已升级，适配尚未发布**。更新不会阻止正式版升级，不会绕过兼容性检查，也不会静默重启。
+ChatGPT mark 副本不会运行官方客户端的自更新，因此不会再出现下载到一半后因本地签名而安装失败。需要升级客户端时，在收藏页点 **升级 ChatGPT**：mark 先验证原始应用的官方签名，再正常退出当前副本并打开正式版；打开失败会恢复当前副本。在正式版完成官方更新后，重新打开 `~/Applications/ChatGPT mark.app`。启动器会检查是否已有对应适配器：有则准备新版副本；没有或准备失败时仍打开上一可用副本，并在收藏页显示 **正式版已升级，适配尚未发布**。更新不会阻止正式版升级，不会绕过兼容性检查，也不会静默重启。
 
 成功升级或回退后，已有的 Dock 入口自动更新。安装器只保留当前副本、待切换副本和一个回退副本，并自动清理无引用的历史构建与安装包。手动安装和回退命令见[安装说明](INSTALL.md#日常打开升级与回退)。preview.11 及更早版本需要先按新安装说明升级一次，才会出现“检查更新”。
 
@@ -69,15 +71,15 @@ ChatGPT mark 副本不会运行官方客户端的自更新，因此不会再出�
 
 **打开后没有左侧 mark，也没有划词按钮？**
 
-先确认打开的是 **ChatGPT mark**。正式版 ChatGPT 不包含这些入口；通过 `~/Applications/mark.app` 重新启动副本即可检查。
+先确认打开的是 **ChatGPT mark**。正式版 ChatGPT 不包含这些入口；通过 `~/Applications/ChatGPT mark.app` 重新启动副本即可检查。
 
 **Dock 里又看到两个相同图标？**
 
-v0.1.3 起，ChatGPT mark 使用独立的书签与波浪图标，正式版保留原图标。日常只固定 **ChatGPT mark**；点击“升级 ChatGPT”后，正式版在运行期间会临时显示在 Dock。完成更新并退出正式版，再通过 `~/Applications/mark.app` 返回。
+v0.1.3 起，ChatGPT mark 使用独立的书签与波浪图标，正式版保留原图标。日常只固定 **ChatGPT mark**；点击“升级 ChatGPT”后，正式版在运行期间会临时显示在 Dock。完成更新并退出正式版，再通过 `~/Applications/ChatGPT mark.app` 返回。
 
 **打开 mark 提示安装 Rosetta？**
 
-早期启动器的打包方式曾触发这个提示。自 preview.9 起使用原生 arm64 启动器；先关闭提示，再用新版安装包更新 `~/Applications/mark.app`。当前支持的 Apple Silicon 安装流程不需要 Rosetta。
+早期启动器的打包方式曾触发这个提示。自 preview.9 起使用原生 arm64 启动器；先关闭提示，再用新版安装包更新 `~/Applications/ChatGPT mark.app`。当前支持的 Apple Silicon 安装流程不需要 Rosetta。
 
 ## 数据备份
 
@@ -85,6 +87,6 @@ v0.1.3 起，ChatGPT mark 使用独立的书签与波浪图标，正式版保留
 
 ## 卸载
 
-退出 ChatGPT mark，从 Dock 移除它的固定入口，再打开正式版。可删除 `~/Applications/mark.app` 和 `~/Library/Application Support/mark/`，移除启动器与全部副本；这也会移除旧副本的回退能力。保留 `~/.local/share/codex-marks/` 即可保留收藏。
+退出 ChatGPT mark，从 Dock 移除它的固定入口，再打开正式版。可删除 `~/Applications/ChatGPT mark.app` 和 `~/Library/Application Support/mark/`，移除启动器与全部副本；这也会移除旧副本的回退能力。保留 `~/.local/share/codex-marks/` 即可保留收藏。
 
 如果安装过可选标准插件，使用 `codex plugin remove codex-marks@mark` 移除。旧菜单栏应用已退役，无需安装。
