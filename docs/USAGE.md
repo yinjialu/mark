@@ -69,6 +69,10 @@ ChatGPT mark 副本不会运行官方客户端的自更新，因此不会再出�
 
 ## 常见问题
 
+**频繁出现“ChatGPT 遇到了问题”？**
+
+先在 mark 收藏页检查更新。v0.1.5 修复了划词按钮在当前客户端重新挂载时可能引用错误 React 模块的问题，并会清理已经退出或删除的 mark 副本留下的 crashpad 与键盘监听辅助进程。安装后重启一次 ChatGPT mark；如果错误仍出现，请保留 `~/Library/Logs/com.openai.codex/` 中对应时间的日志。
+
 **打开后没有左侧 mark，也没有划词按钮？**
 
 先确认打开的是 **ChatGPT mark**。正式版 ChatGPT 不包含这些入口；通过 `~/Applications/ChatGPT mark.app` 重新启动副本即可检查。

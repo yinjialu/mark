@@ -7,9 +7,9 @@ async function __codexMarksFindSelection(source) {
     && m.text_sha256 === hash && m.start_utf16 === source.start_utf16 && m.end_utf16 === source.end_utf16);
 }
 function __codexMarksNativeButton({selectedText, selectionSource}) {
-  const [state,setState] = xlr.useState('loading'), [failure,setFailure] = xlr.useState('');
-  const busy = xlr.useRef(false), version = xlr.useRef(0), reads = xlr.useRef(0);
-  xlr.useEffect(() => {
+  const [state,setState] = __MARK_REACT__.useState('loading'), [failure,setFailure] = __MARK_REACT__.useState('');
+  const busy = __MARK_REACT__.useRef(false), version = __MARK_REACT__.useRef(0), reads = __MARK_REACT__.useRef(0);
+  __MARK_REACT__.useEffect(() => {
     const revision=++version.current;let alive=true;
     busy.current=false;setState('loading');setFailure('');
     const refresh=async()=>{
@@ -38,6 +38,6 @@ function __codexMarksNativeButton({selectedText, selectionSource}) {
     finally{if(version.current===revision)busy.current=false;}
   };
   const saved=state==='saved',title=failure||(saved?'取消 mark':'保存选中文字到 mark 收藏库');
-  return (0,g3.jsx)(zH,{onClick:toggle,disabled:state==='saving'||state==='loading',title,'aria-label':title,'aria-pressed':saved,
+  return (0,__MARK_JSX__.jsx)(__MARK_BUTTON__,{onClick:toggle,disabled:state==='saving'||state==='loading',title,'aria-label':title,'aria-pressed':saved,
     children:state==='saving'||state==='loading'?'mark…':saved?'✓ mark':'mark'});
 }

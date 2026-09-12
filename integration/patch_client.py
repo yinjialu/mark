@@ -106,13 +106,15 @@ def replace_toolbar(script):
     expected = "children:[_,v,y,b,x]"
     if original.count(expected) != 1 or "__codexMarks" in script:
         raise ValueError("Toolbar structure does not match the pinned build")
-    jsx, container = ("g3", "KZt") if GENERATION == 1 else ("q3", "MOe")
+    react, jsx, button, container = (("xlr", "g3", "zH", "KZt") if GENERATION == 1
+                                      else ("f4n", "q3", "Gh", "MOe"))
     patched = original[:tail] + (
         f"return (0,{jsx}.jsxs)({container},{{children:[_,v,y,b,x,"
         f"(0,{jsx}.jsx)(__codexMarksNativeButton,{{selectedText:u,selectionSource:e.markSource}})]}})}}"
     )
     addition = "\n".join((ROOT / "src" / name).read_text() for name in
-                         ("toolbar-button.js", "selection-source.js", "underlines.js"))
+        ("toolbar-button.js", "selection-source.js", "underlines.js"))
+    addition = addition.replace("__MARK_REACT__", react).replace("__MARK_JSX__", jsx).replace("__MARK_BUTTON__", button)
     script = script[:start] + patched + "\n" + addition + "\n" + script[end:]
     before = ('let{portalTarget:r,rect:o,selectedText:s,selectionRange:l,target:u}=e,d=Jn(u,l,s);return(0,QBr.jsx)(ylr,{selectedText:s,'
               if GENERATION == 1 else

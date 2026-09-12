@@ -178,9 +178,84 @@ def _managed_child(path, root):
     return root / relative.parts[0] if relative.parts else None
 
 
+def _process_table():
+    """Return process id, parent id and command without interpreting shell words."""
+    try:
+        completed = subprocess.run(['/bin/ps', '-A', '-o', 'pid=,ppid=,command='],
+                                   check=False, capture_output=True, text=True)
+    except OSError:
+        return []
+    if completed.returncode:
+        return []
+    rows = []
+    for line in completed.stdout.splitlines():
+        pieces = line.strip().split(None, 2)
+        if len(pieces) != 3:
+            continue
+        try:
+            rows.append((int(pieces[0]), int(pieces[1]), pieces[2]))
+        except ValueError:
+            pass
+    return rows
+
+
+def _app_root(command):
+    marker = '.app/Contents/'
+    end = command.find(marker)
+    if not command.startswith('/') or end < 0:
+        return None
+    return Path(command[:end + 4])
+
+
+def _is_helper(command, app):
+    if not command.startswith(str(app) + '/Contents/'):
+        return False
+    return ('/browser_crashpad_handler ' in command or command.endswith('/browser_crashpad_handler')
+            or '/bare-modifier-monitor ' in command or command.endswith('/bare-modifier-monitor'))
+
+
+def terminate_app_helpers(app, rows=None):
+    """Stop crash/keyboard helpers after their owning ChatGPT main process has exited."""
+    app = Path(app)
+    stopped = []
+    for pid, _, command in rows if rows is not None else _process_table():
+        if not _is_helper(command, app):
+            continue
+        try:
+            os.kill(pid, signal.SIGTERM)
+            stopped.append(pid)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            pass
+    return stopped
+
+
+def prune_orphan_helpers(state):
+    """Stop detached helpers for managed copies that no longer have a main process."""
+    rows = _process_table()
+    active = {_app_root(command) for _, _, command in rows
+              if '/Contents/MacOS/ChatGPT' in command and _app_root(command)}
+    builds = (Path(state) / 'builds').resolve()
+    stopped = []
+    seen = set()
+    for _, parent, command in rows:
+        app = _app_root(command)
+        if parent != 1 or not app or app in active or app in seen or not _is_helper(command, app):
+            continue
+        try:
+            app.resolve().relative_to(builds)
+        except (OSError, ValueError):
+            continue
+        seen.add(app)
+        stopped.extend(terminate_app_helpers(app, rows))
+    return stopped
+
+
 def prune_generations(state):
     """Remove unreferenced managed builds and packages after state has been committed."""
     state = Path(state)
+    stopped = prune_orphan_helpers(state)
     data = read_json(state / 'state.json', {})
     builds = state / 'builds'
     packages = state / 'packages'
@@ -202,7 +277,7 @@ def prune_generations(state):
             if child:
                 keep_packages.add(child)
 
-    removed = {'builds': [], 'packages': [], 'errors': []}
+    removed = {'builds': [], 'packages': [], 'processes': stopped, 'errors': []}
     for root, retained, marker, label in (
             (builds, keep_builds, ('build.json', 'failed.json'), 'builds'),
             (packages, keep_packages, ('SHA256SUMS.json',), 'packages')):
@@ -362,6 +437,7 @@ def terminate(app):
         time.sleep(.25)
     if pids(app):
         raise MarkError('当前客户端未退出，已停止切换；没有强制结束进程。')
+    terminate_app_helpers(app)
 
 
 def open_official(app):
@@ -535,7 +611,7 @@ def install_launcher(state, app, launcher_dir):
         raise MarkError('安装包缺少 mark 图标。')
     shutil.copy2(icon, temporary / 'Contents/Resources/mark.icns')
     info = {'CFBundleIdentifier': 'local.mark.launcher', 'CFBundleName': 'ChatGPT mark', 'CFBundleDisplayName': 'ChatGPT mark',
-            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.4', 'LSUIElement': True,
+            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.5', 'LSUIElement': True,
             'CFBundleIconFile': 'mark.icns', 'LSArchitecturePriority': ['arm64'], 'LSMinimumSystemVersion': '11.0',
             'CFBundleGetInfoString': 'ChatGPT mark - mark and revisit conversations'}
     (temporary / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))

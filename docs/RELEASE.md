@@ -1,28 +1,27 @@
-# mark v0.1.4
+# mark v0.1.5
 
-mark v0.1.4 清理无引用的客户端副本和安装包，让升级后的回退能力保持明确，也避免开发或长期升级后在 Spotlight 中出现大量重复入口。
+mark v0.1.5 修复划词 mark 按钮偶尔让整个客户端进入“ChatGPT 遇到了问题”错误页的问题，并补齐升级清理后的辅助进程回收。
 
-## 构建回收
+## 错误页修复
 
-- 成功准备或切换后，只保留当前副本、待切换副本和一个回退副本。
-- 同步删除这些状态不再引用的安装包；未知目录和用户内容不会被清理。
-- 成功升级后只保留最近一个启动器备份。
-- 清理失败不会让一次健康的构建或启动回滚，后续成功升级会再次尝试。
+- 新客户端的划词按钮现在使用该客户端实际导出的 React、JSX 和 Button 模块别名。
+- 修复页面或选区浮栏重新挂载时出现的 `useState is not a function` 错误。
+- 增加新版模块别名下的重复挂载、保存和取消 mark 回归测试。
 
-## Spotlight
+## 进程回收
 
-- mark 状态目录写入 `.metadata_never_index`，让内部客户端副本不再参与新的 Spotlight 索引。
-- 唯一的公开启动器显示为 **ChatGPT mark**，支持 `ChatGPT` 和 `mark` 搜索词。
-- 现有索引缓存会由 macOS 逐步移除。
+- 删除旧构建时会结束已经没有主窗口的 crashpad 与键盘监听辅助进程。
+- 正常切换客户端后会回收刚退出副本的辅助进程。
+- 只处理 mark 管理目录和明确对应已退出应用的辅助进程；运行中的客户端保持不变。
 
 ## 安装与升级
 
-阅读 [安装说明](https://github.com/yinjialu/mark/blob/v0.1.4/docs/INSTALL.md)，将其中的指令复制给 Codex，或使用终端安装脚本。也可下载 ZIP，解压后双击 `Install.command`。
+阅读 [安装说明](https://github.com/yinjialu/mark/blob/v0.1.5/docs/INSTALL.md)，将其中的指令复制给 Codex，或使用终端安装脚本。也可下载 ZIP，解压后双击 `Install.command`。
 
-v0.1.3 用户可在 mark 页面检查更新并安装 v0.1.4。无需迁移收藏数据。
+v0.1.4 用户可在 mark 页面检查更新并安装 v0.1.5。无需迁移收藏数据。
 
 ## 支持范围与验证边界
 
-支持范围与 v0.1.3 相同：**macOS Apple Silicon、ChatGPT 26.908.40834 / build 8881 或 26.901.51231 / build 8109**，并要求清单精确匹配原始包哈希。未知版本停止安装，保留上一可用副本。
+支持范围与 v0.1.4 相同：**macOS Apple Silicon、ChatGPT 26.908.40834 / build 8881 或 26.901.51231 / build 8109**，并要求清单精确匹配原始包哈希。未知版本停止安装，保留上一可用副本。
 
-清理只处理 mark 状态目录内带有内部清单的托管构建和安装包。收藏数据库 `~/.local/share/codex-marks/marks.sqlite3` 及其 `assets/` 不在清理范围内。
+本版根据客户端日志中的 React error boundary 堆栈定位并修复。收藏数据库 `~/.local/share/codex-marks/marks.sqlite3` 及其 `assets/` 不会被迁移或清理。

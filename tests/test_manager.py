@@ -123,6 +123,19 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(len(removed), 2)
         self.assertEqual([path.name for path in backups.iterdir()], ['2'])
 
+    def test_orphan_cleanup_preserves_helpers_for_running_copy(self):
+        current = self.state / 'builds/current/ChatGPT mark.app'
+        orphan = self.state / 'builds/old/ChatGPT mark.app'
+        rows = '\n'.join((
+            f'10 1 {current}/Contents/MacOS/ChatGPT',
+            f'11 1 {current}/Contents/Frameworks/F.framework/Helpers/browser_crashpad_handler --monitor-self',
+            f'12 1 {orphan}/Contents/Resources/native/bare-modifier-monitor --key DoubleCommand'))
+        completed = type('Completed', (), {'returncode': 0, 'stdout': rows})()
+        with patch.object(manager.subprocess, 'run', return_value=completed), patch.object(manager.os, 'kill') as kill:
+            stopped = manager.prune_orphan_helpers(self.state)
+        self.assertEqual(stopped, [12])
+        kill.assert_called_once_with(12, manager.signal.SIGTERM)
+
     def test_successful_launch_promotion_and_rollback_keep_both_versions(self):
         manager.promote(self.state, {'app': 'old'})
         manager.promote(self.state, {'app': 'new'})
