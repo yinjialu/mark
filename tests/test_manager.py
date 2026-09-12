@@ -31,6 +31,10 @@ class ManagerTests(unittest.TestCase):
         self.assertIsNone(manager.select_adapter(self.info, '0' * 64, a['architecture'], [a]))
         self.assertIsNone(manager.select_adapter(self.info, a['header_sha256'], 'x86_64', [a]))
 
+    def test_state_hides_internal_app_copies_from_spotlight(self):
+        manager.prepare_state(self.state)
+        self.assertTrue((self.state / '.metadata_never_index').is_file())
+
     def test_every_manifest_adapter_has_an_exact_patch_profile(self):
         adapters = manager.read_json(ROOT / 'compatibility.json')['adapters']
         self.assertEqual(len(adapters), 2)
@@ -74,6 +78,50 @@ class ManagerTests(unittest.TestCase):
         result = manager.read_json(self.state / 'state.json')
         self.assertEqual(result['active']['app'], 'old')
         self.assertEqual(result['prepared']['app'], 'new')
+
+    def test_prune_keeps_only_state_referenced_generations(self):
+        builds = self.state / 'builds'
+        packages = self.state / 'packages'
+        records = {}
+        for name in ('active', 'prepared', 'previous'):
+            build = builds / name
+            app = build / 'ChatGPT mark.app'
+            app.mkdir(parents=True)
+            (build / 'build.json').write_text('{}')
+            package = packages / name
+            package.mkdir(parents=True)
+            (package / 'SHA256SUMS.json').write_text('{}')
+            records[name] = {'app': str(app), 'package_id': name}
+        stale_build = builds / 'stale'
+        stale_build.mkdir()
+        (stale_build / 'build.json').write_text('{}')
+        stale_package = packages / 'stale'
+        stale_package.mkdir()
+        (stale_package / 'SHA256SUMS.json').write_text('{}')
+        manual_build = builds / 'manual-content'
+        manual_build.mkdir()
+        manager.atomic_json(self.state / 'state.json', records)
+
+        removed = manager.prune_generations(self.state)
+
+        self.assertFalse(stale_build.exists())
+        self.assertFalse(stale_package.exists())
+        self.assertTrue(manual_build.exists())
+        for name in records:
+            self.assertTrue((builds / name).exists())
+            self.assertTrue((packages / name).exists())
+        self.assertEqual(removed['errors'], [])
+
+    def test_launcher_cleanup_keeps_newest_completed_backup(self):
+        backups = self.state / 'launcher-backups'
+        for index in range(3):
+            path = backups / str(index)
+            path.mkdir(parents=True)
+            path.touch()
+            manager.os.utime(path, ns=(index + 1, index + 1))
+        removed = manager.prune_launcher_backups(self.state)
+        self.assertEqual(len(removed), 2)
+        self.assertEqual([path.name for path in backups.iterdir()], ['2'])
 
     def test_successful_launch_promotion_and_rollback_keep_both_versions(self):
         manager.promote(self.state, {'app': 'old'})

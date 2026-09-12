@@ -63,6 +63,14 @@ def stamp():
     return datetime.now(timezone.utc).isoformat()
 
 
+def prepare_state(state):
+    """Create private runtime storage and keep its internal app copies out of Spotlight."""
+    state = Path(state)
+    state.mkdir(parents=True, exist_ok=True)
+    (state / '.metadata_never_index').touch(exist_ok=True)
+    return state
+
+
 def inventory(root=ROOT):
     return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sorted(root.rglob('*')) if p.is_file() and p.name not in ('SHA256SUMS.json', '.DS_Store') and not p.name.startswith('._')
@@ -161,14 +169,101 @@ def verified(record):
     return app
 
 
+def _managed_child(path, root):
+    """Return the direct managed child containing path, or None when it is outside root."""
+    try:
+        relative = Path(path).expanduser().resolve().relative_to(root.resolve())
+    except (OSError, ValueError):
+        return None
+    return root / relative.parts[0] if relative.parts else None
+
+
+def prune_generations(state):
+    """Remove unreferenced managed builds and packages after state has been committed."""
+    state = Path(state)
+    data = read_json(state / 'state.json', {})
+    builds = state / 'builds'
+    packages = state / 'packages'
+    keep_builds = set()
+    keep_packages = set()
+    for key in ('active', 'prepared', 'previous'):
+        record = data.get(key)
+        if not isinstance(record, dict):
+            continue
+        if record.get('app'):
+            child = _managed_child(record['app'], builds)
+            if child:
+                keep_builds.add(child)
+        package_id = record.get('package_id')
+        if package_id and Path(str(package_id)).name == str(package_id):
+            keep_packages.add(packages / str(package_id))
+        if record.get('package'):
+            child = _managed_child(record['package'], packages)
+            if child:
+                keep_packages.add(child)
+
+    removed = {'builds': [], 'packages': [], 'errors': []}
+    for root, retained, marker, label in (
+            (builds, keep_builds, ('build.json', 'failed.json'), 'builds'),
+            (packages, keep_packages, ('SHA256SUMS.json',), 'packages')):
+        if not root.is_dir():
+            continue
+        try:
+            children = list(root.iterdir())
+        except OSError as error:
+            removed['errors'].append(str(root) + ': ' + str(error))
+            continue
+        for child in children:
+            if child in retained or child.is_symlink() or not child.is_dir():
+                continue
+            # Only delete directories created by mark; leave unexpected user content untouched.
+            if not any((child / name).is_file() for name in marker):
+                continue
+            try:
+                shutil.rmtree(child)
+                removed[label].append(str(child))
+            except OSError as error:
+                removed['errors'].append(str(child) + ': ' + str(error))
+    try:
+        if removed['errors']:
+            atomic_json(state / 'cleanup-warning.json', {'at': stamp(), 'errors': removed['errors'][:20]})
+        else:
+            (state / 'cleanup-warning.json').unlink(missing_ok=True)
+    except OSError:
+        pass  # Cleanup must never turn a healthy build or launch into a rollback.
+    return removed
+
+
+def prune_launcher_backups(state, keep=1):
+    """Keep only the newest completed launcher rollback after a successful upgrade."""
+    root = Path(state) / 'launcher-backups'
+    if not root.is_dir():
+        return []
+    try:
+        backups = sorted((path for path in root.iterdir() if path.is_dir() and not path.is_symlink()),
+                         key=lambda path: path.stat().st_mtime_ns, reverse=True)
+    except OSError:
+        return []
+    removed = []
+    for path in backups[max(0, keep):]:
+        try:
+            shutil.rmtree(path)
+            removed.append(str(path))
+        except OSError:
+            pass  # The next successful upgrade can retry old backup cleanup.
+    return removed
+
+
 def remember_build(state, record):
     # Committing a prepared build does not change the last successfully launched build.
     current = read_json(state / 'state.json', {})
     current.update(prepared=record, checked_at=stamp())
     atomic_json(state / 'state.json', current)
+    prune_generations(state)
 
 
 def build(app, state, accept=False):
+    prepare_state(state)
     package_id = verify_package()
     check = doctor(app)
     atomic_json(state / 'compatibility-status.json', check)
@@ -311,6 +406,7 @@ def promote(state, record):
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         # Dock preferences must never turn a healthy launch into a rollback.
         atomic_json(state / 'dock-warning.json', {'at': stamp(), 'message': str(error)[:1000]})
+    prune_generations(state)
 
 
 def launch_record(record, state, switch=False):
@@ -477,7 +573,9 @@ def upgrade_transaction(app, state, accept=False, switch=False):
         record = build(app, state, accept)
         install_launcher(state, app, launcher.parent)
         installed = True
-        return launch_record(record, state, switch)
+        result = launch_record(record, state, switch)
+        prune_launcher_backups(state)
+        return result
     except Exception:
         if installed:
             if launcher.exists():
@@ -545,6 +643,7 @@ def main():
         if state == ROOT or ROOT in state.parents:
             raise MarkError('状态目录必须在安装包目录之外。')
         verify_package()
+        prepare_state(state)
         deferred_result = getattr(args, 'deferred_result', None)
         if deferred_result:
             signal.signal(signal.SIGHUP, signal.SIG_IGN)
