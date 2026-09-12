@@ -3,6 +3,7 @@
 import json
 import hashlib
 from datetime import datetime, timezone
+from functools import lru_cache
 import os
 from pathlib import Path
 import sys
@@ -11,8 +12,10 @@ from marks import Store, default_db, validate
 from resolve_source import resolve, message_text, question_title
 
 
-def source_labels(root, thread_id, message_id):
-    """Enrich only the known source task; a missing local log never loses the snapshot."""
+@lru_cache(maxsize=32)
+def _source_index(root_value, thread_id):
+    """Index one known task once; current history filenames may include a turn suffix."""
+    root = Path(root_value)
     labels = {}
     try:
         with (root / 'session_index.jsonl').open(encoding='utf-8') as index:
@@ -25,8 +28,9 @@ def source_labels(root, thread_id, message_id):
                     continue
     except (OSError, UnicodeError):
         pass
+    messages = {}
     for folder in ("sessions", "archived_sessions"):
-        for path in (root / folder).rglob("*" + thread_id + ".jsonl"):
+        for path in (root / folder).rglob("*" + thread_id + "*.jsonl"):
             try:
                 with path.open(encoding="utf-8") as f:
                     task, turn, title, project = None, "", "", ""
@@ -46,12 +50,19 @@ def source_labels(root, thread_id, message_id):
                             continue
                         if p.get("role") == "user":
                             title = question_title(text) or title
-                        if p.get("id") == message_id:
-                            return {**labels, "turn_id": turn, "turn_title": title,
-                                    "project": project if isinstance(project, str) else ''}
+                        message_id = p.get("id")
+                        if isinstance(message_id, str) and message_id not in messages:
+                            messages[message_id] = {"turn_id": turn, "turn_title": title,
+                                                    "project": project if isinstance(project, str) else ''}
             except (OSError, ValueError, TypeError, AttributeError, UnicodeError):
                 continue
-    return labels
+    return labels, messages
+
+
+def source_labels(root, thread_id, message_id):
+    """Enrich only the known source task; a missing local log never loses the snapshot."""
+    labels, messages = _source_index(str(Path(root).resolve()), thread_id)
+    return {**labels, **messages.get(message_id, {})}
 
 
 def capture(data):

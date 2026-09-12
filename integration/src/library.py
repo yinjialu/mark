@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Bounded library operations for the trusted desktop renderer; fixed local store."""
 import json
+import os
+from pathlib import Path
 import sys
 from marks import Store, default_db, UUID_RE
 from block_assets import block_context
+from capture import source_labels
 from resolve_source import read_position
 
 
@@ -39,10 +42,18 @@ def validate_request(p):
 
 def summary(m):
     a = m.get('anchor', {})
+    labels = {}
+    if not a.get('turn_id') and m.get('thread_id') and a.get('message_id'):
+        root = Path(os.environ.get('CODEX_MARKS_SOURCE_ROOT', os.environ.get('CODEX_HOME', str(Path.home() / '.codex'))))
+        labels = source_labels(root, m['thread_id'], a['message_id'])
+        a = {**a, **{key: labels[key] for key in ('turn_id', 'turn_title') if labels.get(key)}}
     keys = ('message_id', 'turn_id', 'turn_title', 'coordinate_space', 'text_sha256',
             'dom_start_offset', 'dom_end_offset', 'block_kind', 'block_index', 'block_source_hash')
-    return {**{k: m.get(k) for k in ('id', 'title', 'note', 'tags', 'thread_id', 'thread_title', 'created_at', 'deleted_at')},
+    result = {**{k: m.get(k) for k in ('id', 'title', 'note', 'tags', 'thread_id', 'thread_title', 'created_at', 'deleted_at')},
             'quote': m['quote'][:1000], 'anchor': {k: a[k] for k in keys if k in a}}
+    if not result.get('thread_title') and labels.get('thread_title'):
+        result['thread_title'] = labels['thread_title']
+    return result
 
 
 def handle(payload):
