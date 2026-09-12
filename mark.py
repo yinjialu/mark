@@ -203,9 +203,14 @@ def build(app, state, accept=False):
         for relative in ('Contents/Info.plist', 'Contents/Resources/app.asar'):
             shutil.copy2(directory / 'prepared' / relative, target / relative)
         shutil.copytree(directory / 'prepared/Contents/Resources/codex-marks', target / 'Contents/Resources/codex-marks', dirs_exist_ok=True)
+        icon = ROOT / 'assets/mark.icns'
+        if not icon.is_file():
+            raise MarkError('安装包缺少 mark 图标。')
+        shutil.copy2(icon, target / 'Contents/Resources/mark.icns')
         info_path = target / 'Contents/Info.plist'
         info = plistlib.loads(info_path.read_bytes())
-        info.update(CFBundleName='ChatGPT mark', CFBundleDisplayName='ChatGPT mark')
+        info.pop('CFBundleIconName', None)
+        info.update(CFBundleName='ChatGPT mark', CFBundleDisplayName='ChatGPT mark', CFBundleIconFile='mark.icns')
         info_path.write_bytes(plistlib.dumps(info))
         atomic_json(target / 'Contents/Resources/codex-marks/update-config.json', {
             'package': str(state / 'packages' / package_id), 'package_id': package_id,
@@ -262,6 +267,36 @@ def terminate(app):
         time.sleep(.25)
     if pids(app):
         raise MarkError('当前客户端未退出，已停止切换；没有强制结束进程。')
+
+
+def open_official(app):
+    """Switch from a marked copy to the original signed app for its official updater."""
+    app = app.resolve()
+    info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
+    if info.get('CFBundleIdentifier') != 'com.openai.codex':
+        raise MarkError('正式客户端标识不匹配，已停止切换。')
+    run(['/usr/bin/codesign', '--verify', '--deep', '--strict', app], capture_output=True)
+    identity = run(['/usr/bin/codesign', '-d', '--verbose=4', app], capture_output=True, text=True)
+    if 'TeamIdentifier=2DC432GLL2' not in identity.stderr + identity.stdout:
+        raise MarkError('目标不是预期的 OpenAI 签名客户端，已停止切换。')
+    official_running = bool(pids(app))
+    marked = [candidate for candidate in active_codex() if candidate != app]
+    try:
+        for candidate in marked:
+            terminate(candidate)
+        command = ['/usr/bin/open', '-a', app] if official_running else ['/usr/bin/open', '-n', '-a', app]
+        run(command, capture_output=True, timeout=15)
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            if pids(app):
+                return {'status': 'official_opened', 'app': str(app),
+                        'message': '已打开正式 ChatGPT；请使用它的官方更新，完成后重新打开 mark。'}
+            time.sleep(.25)
+        raise MarkError('未检测到正式 ChatGPT 启动。')
+    except Exception:
+        if marked:
+            run(['/usr/bin/open', '-n', '-a', marked[0]], capture_output=True)
+        raise
 
 
 def promote(state, record):
@@ -362,9 +397,11 @@ def schedule_switch(app, state, command, switch=False, accept=False):
         log.chmod(0o600)
         process = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=output,
                                    stderr=subprocess.STDOUT, start_new_session=True, close_fds=True)
+    message = ('即将退出 ChatGPT mark 并打开正式 ChatGPT；请在正式版中完成官方更新。'
+               if command == 'open-official' else '切换已安排；这不是启动成功。请检查 result_file 的最终状态。')
     return {'status': 'switch_scheduled', 'pid': process.pid, 'delay_seconds': 8,
             'log': str(log), 'result_file': str(result_path),
-            'message': '切换已安排；这不是启动成功。请检查 result_file 的最终状态。'}
+            'message': message}
 
 
 def install_launcher(state, app, launcher_dir):
@@ -395,9 +432,13 @@ def install_launcher(state, app, launcher_dir):
     script.parent.mkdir(parents=True, exist_ok=True)
     script.write_text('#!/bin/sh\nexec ' + shlex.join(args) + '\n')
     script.chmod(0o755)
+    icon = ROOT / 'assets/mark.icns'
+    if not icon.is_file():
+        raise MarkError('安装包缺少 mark 图标。')
+    shutil.copy2(icon, temporary / 'Contents/Resources/mark.icns')
     info = {'CFBundleIdentifier': 'local.mark.launcher', 'CFBundleName': 'mark', 'CFBundleDisplayName': 'mark',
-            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.2', 'LSUIElement': True,
-            'LSArchitecturePriority': ['arm64'], 'LSMinimumSystemVersion': '11.0'}
+            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.3', 'LSUIElement': True,
+            'CFBundleIconFile': 'mark.icns', 'LSArchitecturePriority': ['arm64'], 'LSMinimumSystemVersion': '11.0'}
     (temporary / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     try:
         run(['/usr/bin/xcrun', 'clang', '-arch', 'arm64', '-mmacosx-version-min=11.0',
@@ -488,11 +529,11 @@ def main():
         updater.add_argument('--accept-local-resign', action='store_true')
         updater.add_argument('--detached', action='store_true')
         updater.add_argument('--deferred-result', type=Path, help=argparse.SUPPRESS)
-    for name in ('prepare', 'install', 'launch', 'rollback', 'upgrade', 'start'):
+    for name in ('prepare', 'install', 'launch', 'rollback', 'upgrade', 'start', 'open-official'):
         p = sub.add_parser(name)
         p.add_argument('--accept-local-resign', action='store_true')
         p.add_argument('--switch', action='store_true')
-        if name in ('launch', 'rollback'):
+        if name in ('launch', 'rollback', 'open-official'):
             p.add_argument('--detached', action='store_true', help='延迟 8 秒在独立进程中切换，适合在 Codex 内执行')
             p.add_argument('--deferred-result', type=Path, help=argparse.SUPPRESS)
         if name == 'install':
@@ -550,6 +591,8 @@ def main():
                 with lock(state):
                     if args.command == 'upgrade':
                         result = upgrade_transaction(app, state, args.accept_local_resign, args.switch)
+                    elif args.command == 'open-official':
+                        result = open_official(app)
                     elif args.command == 'start':
                         result = start_managed(app, state, args.accept_local_resign)
                     elif args.command == 'rollback':

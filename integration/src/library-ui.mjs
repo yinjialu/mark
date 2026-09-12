@@ -101,7 +101,7 @@ export function createMarksUI(React,jsx,ui){
       selected?h(Detail,{key:selected,id:selected,onChange:()=>{setLocalRev(v=>v+1);},onJump}):h('div',{className:'mark-detail-empty'},'选择一条收藏，查看内容和来源'));
   }
   function Updates(){
-    const [info,setInfo]=React.useState(null),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[later,setLater]=React.useState(false);
+    const [info,setInfo]=React.useState(null),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[later,setLater]=React.useState(false),[handoff,setHandoff]=React.useState('');
     const alive=React.useRef(false),working=React.useRef(false);
     const active=s=>['scheduled','downloading','installing'].includes(s);
     const request=async payload=>{const r=await window.codexMarks.updates(payload);if(!r?.ok)throw Error(r?.error||'暂时无法检查更新');return r;};
@@ -127,16 +127,22 @@ export function createMarksUI(React,jsx,ui){
       working.current=true;setBusy(true);setError('');
       try{const r=await request({op:'install',ticket:info.ticket});if(alive.current)setInfo(r);}catch(e){if(alive.current)setError(e.message);}finally{working.current=false;if(alive.current)setBusy(false);}
     }
+    async function openOfficial(){
+      if(working.current)return;
+      working.current=true;setBusy(true);setError('');setHandoff('正在切换到正式 ChatGPT…');
+      try{const r=await request({op:'official'});if(alive.current)setHandoff(r.message||'即将打开正式 ChatGPT，请在其中完成官方更新。');}catch(e){if(alive.current){setHandoff('');setError(e.message);}}finally{working.current=false;if(alive.current)setBusy(false);}
+    }
     if(!window.codexMarks?.updates)return null;
     const progress={scheduled:'已安排更新，完成后将重启',downloading:'正在下载并校验更新…',installing:'正在生成新版副本，完成后将重启…',complete:'更新已完成',error:'更新未完成，旧版本已保留'};
     const official=info?.source?.version?`正式版 ${info.source.version}${info.source.build?' · build '+info.source.build:''}`:'';
     const copy=info?.active_client_version?`当前副本 ${info.active_client_version}${info.active_client_build?' · build '+info.active_client_build:''}`:'';
     return h('div',{className:'mark-updates','data-codex-mark-updates':''},
-      h('span',{className:'text-tertiary text-xs',role:'status'},error||progress[info?.status]||(busy?'正在检查更新…':info?.status==='available'?'发现 mark '+info.version:info?.message||'mark 更新')),
+      h('span',{className:'text-tertiary text-xs',role:'status'},error||handoff||progress[info?.status]||(busy?'正在检查更新…':info?.status==='available'?'发现 mark '+info.version:info?.message||'mark 更新')),
       official?h('span',{className:'text-tertiary text-xs'},official):null,
       copy?h('span',{className:'text-tertiary text-xs'},copy):info?.current_version?h('span',{className:'text-tertiary text-xs'},'mark '+info.current_version):null,
       info?.status==='available'&&!later?h(jsx.Fragment,{},button(info.rebuild_for_client?'适配新版并重启':'安装并重启',install,{disabled:busy}),button('暂不更新',()=>setLater(true),{disabled:busy})):null,
-      !active(info?.status)?button(info?.status==='waiting_for_adapter'?'重新检查适配':'检查更新',()=>void check(true),{disabled:busy}):null);
+      !active(info?.status)?button('升级 ChatGPT',()=>void openOfficial(),{disabled:busy,title:'切换到原始 ChatGPT，使用官方安装器更新'}):null,
+      !active(info?.status)?button(info?.status==='waiting_for_adapter'?'重新检查适配':'检查 mark 更新',()=>void check(true),{disabled:busy}):null);
   }
   function Page({navigate,sourceThreadId='',selectedId=null,initialNotice=''}){
     const [selected,setSelected]=React.useState(selectedId),[query,setQuery]=React.useState(''),[revision,setRevision]=React.useState(0);

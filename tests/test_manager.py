@@ -43,6 +43,16 @@ class ManagerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             patch_client.configure('future-version', '0' * 64)
 
+    def test_generated_copy_disables_the_official_self_updater(self):
+        for source, expected in (
+            ('a=1,x=b.c.shouldIncludeUpdater(d,process.platform,process.env),z=2', 'a=1,x=!1,z=2'),
+            ('a=1,w=a.i.shouldIncludeUpdater(u,process.platform,process.env),z=2', 'a=1,w=!1,z=2')):
+            patched = patch_client.disable_official_updater(source)
+            self.assertEqual(patched, expected)
+            self.assertNotIn('shouldIncludeUpdater', patched)
+        with self.assertRaises(ValueError):
+            patch_client.disable_official_updater('const updater = true')
+
     def test_unknown_upgrade_preserves_current_and_never_patches(self):
         active = {'active': {'app': '/existing/ChatGPT mark.app'}}
         manager.atomic_json(self.state / 'state.json', active)
@@ -157,6 +167,22 @@ class ManagerTests(unittest.TestCase):
             self.assertEqual(result['status'], 'switch_scheduled')
             self.assertFalse(Path(result['result_file']).exists())
             self.assertEqual(Path(result['log']).stat().st_mode & 0o777, 0o600)
+
+    def test_open_official_closes_marked_copy_and_opens_signed_source(self):
+        official = Path('/Applications/ChatGPT.app')
+        marked = Path('/tmp/ChatGPT mark.app')
+        info = {'CFBundleIdentifier': 'com.openai.codex'}
+        completed = type('Completed', (), {'stdout': '', 'stderr': 'TeamIdentifier=2DC432GLL2'})()
+        with patch.object(manager.plistlib, 'loads', return_value=info), \
+             patch.object(manager.Path, 'read_bytes', return_value=b'plist'), \
+             patch.object(manager, 'run', return_value=completed) as run, \
+             patch.object(manager, 'active_codex', return_value=[marked]), \
+             patch.object(manager, 'terminate') as terminate, \
+             patch.object(manager, 'pids', side_effect=[[], [42]]):
+            result = manager.open_official(official)
+        terminate.assert_called_once_with(marked)
+        self.assertIn(['/usr/bin/open', '-n', '-a', official], [call.args[0] for call in run.call_args_list])
+        self.assertEqual(result['status'], 'official_opened')
 
     def test_exclusive_install_lock_is_released(self):
         with manager.lock(self.state):

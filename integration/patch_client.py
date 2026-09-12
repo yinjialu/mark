@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import plistlib
+import re
 import shutil
 import struct
 
@@ -18,6 +19,7 @@ PROFILES = {
         "mermaid": "webview/assets/mermaid-diagram-e0f2bd6686a8.js",
         "rail": "webview/assets/thread-user-message-navigation-rail-app-555e91d9ccfc.js",
         "tabs": "webview/assets/tabs-2fa243fa7caf.js",
+        "main": ".vite/build/main-BT6ViFC-.js",
     },
     ("26.908.40834", "517e720853645405849b726c8e32862c020154780d0c319d8df44b88d84086f1"): {
         "generation": 2,
@@ -26,9 +28,10 @@ PROFILES = {
         "mermaid": "webview/assets/mermaid-diagram-d7ab7d6ebbc1.js",
         "rail": "webview/assets/thread-user-message-navigation-rail-app-3f607bba867e.js",
         "tabs": "webview/assets/tabs-90f6572747cb.js",
+        "main": ".vite/build/main-DaMR-wdT.js",
     },
 }
-VERSION = HEADER_HASH = ASSET = INITIAL = MERMAID = RAIL = TABS = None
+VERSION = HEADER_HASH = ASSET = INITIAL = MERMAID = RAIL = TABS = MAIN = None
 GENERATION = None
 PRELOAD = ".vite/build/preload.js"
 BOOTSTRAP = ".vite/build/early-bootstrap.js"
@@ -41,13 +44,13 @@ SIDEBAR = "webview/assets/codex-marks-sidebar.js"
 
 
 def configure(version, header_hash):
-    global VERSION, HEADER_HASH, ASSET, INITIAL, MERMAID, RAIL, TABS, GENERATION
+    global VERSION, HEADER_HASH, ASSET, INITIAL, MERMAID, RAIL, TABS, MAIN, GENERATION
     profile = PROFILES.get((version, header_hash))
     if profile is None:
         raise ValueError("Client version mismatch; rebuild the patch for this version")
     VERSION, HEADER_HASH = version, header_hash
-    ASSET, INITIAL, MERMAID, RAIL, TABS = (profile[name] for name in
-        ("asset", "initial", "mermaid", "rail", "tabs"))
+    ASSET, INITIAL, MERMAID, RAIL, TABS, MAIN = (profile[name] for name in
+        ("asset", "initial", "mermaid", "rail", "tabs", "main"))
     GENERATION = profile["generation"]
 
 
@@ -312,6 +315,16 @@ def replace_page(initial):
     return initial
 
 
+def disable_official_updater(script):
+    """The locally signed copy cannot be safely replaced by the official updater."""
+    pattern = re.compile(r'([A-Za-z_$][\w$]*)=([A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*)\.shouldIncludeUpdater\(([^()]*)\)')
+    matches = list(pattern.finditer(script))
+    if len(matches) != 1:
+        raise ValueError('Official updater initialization changed')
+    match = matches[0]
+    return script[:match.start()] + match.group(1) + '=!1' + script[match.end():]
+
+
 def prepare(app, output, plugin):
     app, output, plugin = app.resolve(), output.resolve(), plugin.resolve()
     # Preparation never writes into or over an application bundle.
@@ -340,6 +353,7 @@ def prepare(app, output, plugin):
         modified += '\n' + (ROOT / 'src/native-source-v2.js').read_text()
 
     initial = replace_page(initial)
+    main = disable_official_updater(archive.read(MAIN).decode())
     # Native components are initialized by their original lazy module initializers.
     initial = f'import {{n as __initMarkTabs,t as __MarkTabs}} from "./{Path(TABS).name}";\n' + initial
     if GENERATION == 1:
@@ -374,7 +388,7 @@ def prepare(app, output, plugin):
         BOOTSTRAP: bootstrap.replace(b"Promise.resolve().then",
             b'(()=>{try{require("./codex-marks-main.cjs").register()}catch(_){}})(),Promise.resolve().then', 1),
         BRIDGE: (ROOT / "src/main-bridge.cjs").read_bytes(),
-        INITIAL: initial.encode(), MERMAID: mermaid.encode(), BLOCKS: (ROOT / "src/block-buttons.mjs").read_bytes(),
+        INITIAL: initial.encode(), MAIN: main.encode(), MERMAID: mermaid.encode(), BLOCKS: (ROOT / "src/block-buttons.mjs").read_bytes(),
         RAIL: rail.encode(), LIBRARY: (ROOT / 'src/library-ui.mjs').read_bytes(),
         LIBRARY_BRIDGE: (ROOT / 'src/library-bridge.cjs').read_bytes(),
         UPDATE_BRIDGE: (ROOT / 'src/update-bridge.cjs').read_bytes(),

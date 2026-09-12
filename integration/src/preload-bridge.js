@@ -6,7 +6,7 @@
   const {contextBridge, ipcRenderer} = require("electron");
   contextBridge.exposeInMainWorld("codexMarks", Object.freeze({
     updates(request) {
-      if (request?.op === "install" && !navigator.userActivation?.isActive) return Promise.reject(new Error("请点击安装并重启"));
+      if (["install", "official"].includes(request?.op) && !navigator.userActivation?.isActive) return Promise.reject(new Error("请点击更新按钮"));
       return ipcRenderer.invoke("local.codex-marks:updates:v1", request);
     },
     library(request) {

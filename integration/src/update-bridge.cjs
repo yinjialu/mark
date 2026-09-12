@@ -4,7 +4,9 @@ const uuid=v=>typeof v==='string'&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}
 function validRequest(p){
   if(!p||typeof p!=='object'||Array.isArray(p))return false;
   const keys=Object.keys(p);
-  return p.op==='check'?keys.length===2&&typeof p.force==='boolean':p.op==='status'?keys.length===1:p.op==='install'&&keys.length===2&&uuid(p.ticket);
+  if(p.op==='check')return keys.length===2&&typeof p.force==='boolean';
+  if(p.op==='status'||p.op==='official')return keys.length===1;
+  return p.op==='install'&&keys.length===2&&uuid(p.ticket);
 }
 function request(p,resourcesPath,run=spawn){
   return new Promise(resolve=>{
@@ -18,6 +20,7 @@ function request(p,resourcesPath,run=spawn){
     const args=['-B',path.join(config.package,'mark.py'),'--app',config.source_app,'--state-dir',config.state];
     if(p.op==='check')args.push('check-update',...(p.force?['--force']:[]));
     else if(p.op==='status')args.push('update-status');
+    else if(p.op==='official')args.push('open-official','--detached');
     else args.push('update','--yes','--ticket',p.ticket,'--detached');
     let child;try{child=run('/usr/bin/python3',args,{stdio:['ignore','pipe','pipe'],shell:false});}catch{return resolve({ok:false,error:'暂时无法检查更新'});}
     let finished=false,size=0;const chunks=[];
