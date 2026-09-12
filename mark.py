@@ -611,7 +611,7 @@ def install_launcher(state, app, launcher_dir):
         raise MarkError('安装包缺少 mark 图标。')
     shutil.copy2(icon, temporary / 'Contents/Resources/mark.icns')
     info = {'CFBundleIdentifier': 'local.mark.launcher', 'CFBundleName': 'ChatGPT mark', 'CFBundleDisplayName': 'ChatGPT mark',
-            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.5', 'LSUIElement': True,
+            'CFBundleExecutable': 'mark', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '0.1.6', 'LSUIElement': True,
             'CFBundleIconFile': 'mark.icns', 'LSArchitecturePriority': ['arm64'], 'LSMinimumSystemVersion': '11.0',
             'CFBundleGetInfoString': 'ChatGPT mark - mark and revisit conversations'}
     (temporary / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))

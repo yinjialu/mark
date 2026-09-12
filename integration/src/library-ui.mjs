@@ -46,9 +46,29 @@ export async function locateMark(mark,scroll){
   // Exact message identity is still useful when a source snapshot no longer matches.
   return {root,element:root,precision:'message'};
 }
-function reveal(found,scroll){
+export function isExactLocation(mark,found){
+  const space=mark.anchor?.coordinate_space;
+  if(space==='rendered_message_text')return found?.precision==='selection';
+  if(space==='rendered_block')return found?.precision==='block';
+  return !!found;
+}
+export async function waitForExactLocation(mark,getScrollElement,current=()=>true,initial=null,{attempts=40,interval=100}={}){
+  let found=initial;
+  if(isExactLocation(mark,found))return {found,exact:true};
+  for(let i=0;i<attempts&&current();i++){
+    const candidate=await locateMark(mark,getScrollElement());
+    if(candidate)found=candidate;
+    if(isExactLocation(mark,candidate))return {found:candidate,exact:true};
+    if(i+1<attempts)await new Promise(resolve=>setTimeout(resolve,interval));
+  }
+  return {found,exact:false};
+}
+function position(found,scroll,behavior){
   const rect=found.range?.getBoundingClientRect()||found.element.getBoundingClientRect(),box=scroll.getBoundingClientRect();
-  scroll.scrollBy({top:rect.top-box.top-scroll.clientHeight*.15,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  scroll.scrollBy({top:rect.top-box.top-scroll.clientHeight*.15,behavior});
+}
+function reveal(found,scroll){
+  position(found,scroll,matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth');
   if(found.range&&CSS.highlights&&window.Highlight){
     CSS.highlights.set('codex-mark-jump',new Highlight(found.range));setTimeout(()=>CSS.highlights.delete('codex-mark-jump'),2200);
   }else found.element.animate?.([{outline:'3px solid #d39620'},{outline:'3px solid transparent'}],{duration:1600});
@@ -204,18 +224,20 @@ export function createMarksUI(React,jsx,ui){
       const scroll=getScrollElement();let found=await locateMark(mark,scroll);
       if(!current())return;
       const item=navigationItem(mark,ref.current.items);
-      if(!found&&item&&ref.current.onRevealItem){
+      if(!isExactLocation(mark,found)&&item&&ref.current.onRevealItem){
         try{await ref.current.onRevealItem(item);}catch{}
         if(!current())return;
         found=await locateMark(mark,getScrollElement());
       }
-      if((!found||found.precision==='message')&&ref.current.onRevealMark){
+      if(!isExactLocation(mark,found)&&ref.current.onRevealMark){
         try{await ref.current.onRevealMark(mark);}catch{}
         if(!current())return;
         found=await locateMark(mark,getScrollElement());
       }
-      if(!found){
-        for(let i=0;i<40&&current();i++){found=await locateMark(mark,getScrollElement());if(found)break;await new Promise(r=>setTimeout(r,100));}
+      if(!isExactLocation(mark,found)){
+        const materializeScroll=getScrollElement();
+        if(found?.element?.isConnected&&materializeScroll?.isConnected)position(found,materializeScroll,'instant');
+        ({found}=await waitForExactLocation(mark,getScrollElement,current,found));
         if(!found&&item&&current()){
           const unit=Array.from(getScrollElement()?.querySelectorAll('[data-content-search-unit-key]')||[]).find(el=>el.getAttribute('data-content-search-unit-key')===item.id);
           if(unit)found={element:unit,precision:'turn'};

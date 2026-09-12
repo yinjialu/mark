@@ -6,9 +6,9 @@
 
 选中文字点 **mark**；图片、Mermaid 图表和表格也能保存。通过右侧导航回看当前任务，或在左侧 **mark** 页面搜索所有收藏。
 
-[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载 v0.1.5](https://github.com/yinjialu/mark/releases/tag/v0.1.5) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md) · [官方目录收录说明](docs/PUBLISHING.md)
+[复制给 Codex 安装](docs/INSTALL.md#复制给-codex-自动安装) · [下载 v0.1.6](https://github.com/yinjialu/mark/releases/tag/v0.1.6) · [使用说明](docs/USAGE.md) · [适配与开发](DEVELOPMENT.md) · [官方目录收录说明](docs/PUBLISHING.md)
 
-> **v0.1.5。** 修复划词 mark 按钮在页面重新挂载时可能触发的客户端错误页，并清理已退出副本残留的辅助进程。界面集成支持 **macOS Apple Silicon，ChatGPT 26.908.40834 / build 8881**，并继续支持 **26.901.51231 / build 8109**。安装器会校验客户端版本、构建号、架构和包完整性；其他版本保留当前可用副本并等待适配。本项目不是 OpenAI 官方项目。
+> **v0.1.6。** 右侧导航会等待具体文字选区、图片、图表或表格完成挂载，再定位到收藏位置；消息容器先出现时不再提前结束。界面集成支持 **macOS Apple Silicon，ChatGPT 26.908.40834 / build 8881**，并继续支持 **26.901.51231 / build 8109**。安装器会校验客户端版本、构建号、架构和包完整性；其他版本保留当前可用副本并等待适配。本项目不是 OpenAI 官方项目。
 
 ## 30 秒上手
 
